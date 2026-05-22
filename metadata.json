@@ -1,0 +1,6 @@
+{
+  "name": "ToGather",
+  "description": "ToGather is a design-forward community platform built to help you find your tribe, share updates, host events, and convert collective intent into real-world local impact.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}

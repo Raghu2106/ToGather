@@ -1,0 +1,70 @@
+@import url('https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap');
+@import "tailwindcss";
+
+@theme {
+  --font-sans: "Plus Jakarta Sans", ui-sans-serif, system-ui, sans-serif;
+  
+  --color-outline: #8a716c;
+  --color-on-primary-container: #731808;
+  --color-surface-container-high: #eae8e6;
+  --color-surface: #fbf9f7;
+  --color-tertiary-fixed: #a0f1e8;
+  --color-inverse-primary: #ffb4a5;
+  --color-outline-variant: #dec0ba;
+  --color-surface-tint: #a43c28;
+  --color-on-tertiary-container: #00423e;
+  --color-tertiary: #006a64;
+  --color-on-primary-fixed: #3f0400;
+  --color-on-background: #1b1c1b;
+  --color-secondary-fixed: #ffdcc6;
+  --color-on-surface-variant: #57423e;
+  --color-on-error-container: #93000a;
+  --color-secondary-container: #fda059;
+  --color-on-tertiary: #ffffff;
+  --color-on-primary: #ffffff;
+  --color-on-tertiary-fixed-variant: #00504b;
+  --color-tertiary-fixed-dim: #84d5cc;
+  --color-surface-container: #efedec;
+  --color-on-secondary: #ffffff;
+  --color-background: #fbf9f7;
+  --color-surface-container-lowest: #ffffff;
+  --color-on-tertiary-fixed: #00201e;
+  --color-on-primary-fixed-variant: #842413;
+  --color-on-secondary-fixed: #301400;
+  --color-surface-variant: #e4e2e0;
+  --color-inverse-on-surface: #f2f0ee;
+  --color-surface-bright: #fbf9f7;
+  --color-secondary: #934b06;
+  --color-inverse-surface: #30302f;
+  --color-surface-dim: #dbdad8;
+  --color-error: #ba1a1a;
+  --color-on-secondary-container: #723700;
+  --color-secondary-fixed-dim: #ffb784;
+  --color-primary-container: #ff7f66;
+  --color-error-container: #ffdad6;
+  --color-surface-container-highest: #e4e2e0;
+  --color-primary: #a43c28;
+  --color-surface-container-low: #f5f3f1;
+  --color-primary-fixed: #ffdad3;
+  --color-on-error: #ffffff;
+  --color-on-secondary-fixed-variant: #713700;
+  --color-tertiary-container: #61b2aa;
+  --color-primary-fixed-dim: #ffb4a5;
+  --color-on-surface: #1b1c1b;
+}
+
+body {
+  font-family: 'Plus Jakarta Sans', sans-serif;
+  -webkit-font-smoothing: antialiased;
+  background-color: var(--color-surface);
+  color: var(--color-on-surface);
+}
+
+.hide-scrollbar::-webkit-scrollbar {
+  display: none;
+}
+.hide-scrollbar {
+  -ms-overflow-style: none;
+  scrollbar-width: none;
+}
+
