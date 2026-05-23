@@ -4,67 +4,206 @@
  */
 
 import React, { useState } from 'react';
-import { FeedPost } from '../types';
+import { FeedPost, Hub, EventEntity } from '../types';
 import { 
-  Heart, 
   MessageSquare, 
-  Share2, 
-  Bookmark, 
-  MoreVertical, 
-  Flame,
-  Plus, 
+  Send,
+  AlertTriangle,
+  CheckCircle2,
+  Trophy,
+  Calendar,
+  Users,
+  Clock,
+  ArrowRight,
+  Plus,
+  Compass,
+  FileText,
+  Bookmark,
+  Share2,
   Check,
-  Send
+  Tag
 } from 'lucide-react';
 
 interface FeedTabProps {
   posts: FeedPost[];
-  onToggleLike: (postId: string) => void;
-  onToggleBookmark: (postId: string) => void;
-  onAddNewPost: (text: string, tag: string) => void;
+  onAddNewPost: (postData: {
+    text: string;
+    tags: string[];
+    type: 'event_recap' | 'hub_milestone' | 'thank_you_note' | 'outcome_report';
+    eventName: string;
+    eventId?: string;
+    hubName: string;
+    hubId?: string;
+    completionDate: string;
+    participantCount: number;
+    attendanceRate?: number;
+    impactMetrics?: {
+      participantsInvolved?: number;
+      volunteerHours?: number;
+      fundsRaised?: number;
+      treesPlanted?: number;
+      wasteCollectedKg?: number;
+      distanceCoveredKm?: number;
+    };
+  }) => void;
   isLoggedIn: boolean;
   onShowAuthModal: () => void;
+  onUpdateFeedback?: (postId: string, type: 'appreciates' | 'inspirations' | 'participated') => void;
+  onReportPost?: (postId: string, reason: string) => void;
+  hubs: Hub[];
+  events: EventEntity[];
+  onViewHub?: (hubId: string) => void;
+  onViewEvent?: (eventId: string) => void;
 }
 
 export default function FeedTab({ 
   posts, 
-  onToggleLike, 
-  onToggleBookmark, 
-  onAddNewPost,
-  isLoggedIn,
-  onShowAuthModal
+  onAddNewPost, 
+  isLoggedIn, 
+  onShowAuthModal,
+  onUpdateFeedback,
+  onReportPost,
+  hubs = [],
+  events = [],
+  onViewHub,
+  onViewEvent
 }: FeedTabProps) {
   const [selectedTag, setSelectedTag] = useState('All');
+  const [selectedType, setSelectedType] = useState('All');
   const [showCreateModal, setShowCreateModal] = useState(false);
+  
+  // Custom Create post state variables
   const [postText, setPostText] = useState('');
-  const [postTag, setPostTag] = useState('#General');
+  const [reportType, setReportType] = useState<'event_recap' | 'hub_milestone' | 'thank_you_note' | 'outcome_report'>('event_recap');
+  const [selectedHubId, setSelectedHubId] = useState('');
+  const [selectedEventId, setSelectedEventId] = useState('');
+  const [customEventName, setCustomEventName] = useState('');
+  const [completionDate, setCompletionDate] = useState('Today');
+  
+  // Quantified Stats variables
+  const [pVolInvolved, setPVolInvolved] = useState('');
+  const [pVolHours, setPVolHours] = useState('');
+  const [pAttendanceRate, setPAttendanceRate] = useState('100');
+  const [pTreesPlanted, setPTreesPlanted] = useState('');
+  const [pWasteCollected, setPWasteCollected] = useState('');
+  const [pDistanceCovered, setPDistanceCovered] = useState('');
+  const [pFundsRaised, setPFundsRaised] = useState('');
+  
   const [activeCommentsPostId, setActiveCommentsPostId] = useState<string | null>(null);
   const [commentText, setCommentText] = useState('');
-  
-  // Custom mock join for internal BBQ callout
-  const [bbqJoined, setBbqJoined] = useState(false);
+  const [reportedPostId, setReportedPostId] = useState<string | null>(null);
+  const [reportReason, setReportReason] = useState('');
 
-  // Interest tags
-  const tagsList = ['All', '#Hiking', '#Pottery', '#Cooking', '#Yoga', '#Community'];
+  // Source Type filtering
+  const typeFilters = [
+    { key: 'All', label: 'All Activities' },
+    { key: 'event_recap', label: 'Event Recaps' },
+    { key: 'hub_milestone', label: 'Hub Milestones' },
+    { key: 'thank_you_note', label: 'Thank-Yous' },
+    { key: 'outcome_report', label: 'Outcome Reports' }
+  ];
 
-  // Filter posts based on tags
-  const filteredPosts = posts.filter(post => {
-    if (selectedTag === 'All') return true;
-    return post.tags.includes(selectedTag) || (post.tags.length === 0 && selectedTag === '#Community' && post.quote);
-  });
+  // Category tags filtering
+  const tagsList = ['All', '#Environment', '#Cycling', '#Education', '#Pets', '#Volunteering'];
 
-  // Handle create post submit
-  const handleCreatePost = (e: React.FormEvent) => {
+  // Handle Log Creation
+  const handleCreatePostSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     if (!isLoggedIn) {
       onShowAuthModal();
       return;
     }
     if (!postText.trim()) return;
-    onAddNewPost(postText, postTag);
+
+    // Resolve associated hub/event info
+    let hubName = "General Community";
+    let actualHubId = selectedHubId || undefined;
+    if (selectedHubId) {
+      const matchHub = hubs.find(h => h.id === selectedHubId);
+      if (matchHub) hubName = matchHub.name;
+    }
+
+    let resolvedEventName = customEventName;
+    let actualEventId = selectedEventId || undefined;
+    if (selectedEventId) {
+      const matchEvent = events.find(e => e.id === selectedEventId);
+      if (matchEvent) {
+        resolvedEventName = matchEvent.title;
+        // if hub is associated and not typed by user, inherit it
+        if (!selectedHubId && matchEvent.hubId) {
+          actualHubId = matchEvent.hubId;
+          const matchHub = hubs.find(h => h.id === matchEvent.hubId);
+          if (matchHub) hubName = matchHub.name;
+        }
+      }
+    }
+
+    if (!resolvedEventName) {
+      resolvedEventName = reportType === 'hub_milestone' ? 'Community Milestone Accomplished' : 'Local Gathering Completed';
+    }
+
+    // Map Category based on selection
+    let deducedCategoryTag = '#Volunteering';
+    if (resolvedEventName.toLowerCase().includes('clean') || postText.toLowerCase().includes('clean') || postText.toLowerCase().includes('ocean') || postText.toLowerCase().includes('tree')) {
+      deducedCategoryTag = '#Environment';
+    } else if (resolvedEventName.toLowerCase().includes('cycl') || resolvedEventName.toLowerCase().includes('ride') || postText.toLowerCase().includes('cycle')) {
+      deducedCategoryTag = '#Cycling';
+    } else if (resolvedEventName.toLowerCase().includes('tutor') || resolvedEventName.toLowerCase().includes('learn') || postText.toLowerCase().includes('class') || postText.toLowerCase().includes('student')) {
+      deducedCategoryTag = '#Education';
+    } else if (resolvedEventName.toLowerCase().includes('dog') || resolvedEventName.toLowerCase().includes('pet') || resolvedEventName.toLowerCase().includes('cat')) {
+      deducedCategoryTag = '#Pets';
+    }
+
+    const impactData = {
+      participantsInvolved: pVolInvolved ? Number(pVolInvolved) : undefined,
+      volunteerHours: pVolHours ? Number(pVolHours) : undefined,
+      treesPlanted: pTreesPlanted ? Number(pTreesPlanted) : undefined,
+      wasteCollectedKg: pWasteCollected ? Number(pWasteCollected) : undefined,
+      distanceCoveredKm: pDistanceCovered ? Number(pDistanceCovered) : undefined,
+      fundsRaised: pFundsRaised ? Number(pFundsRaised) : undefined
+    };
+
+    onAddNewPost({
+      text: postText,
+      tags: [deducedCategoryTag, `#${reportType.split('_').map(w => w.charAt(0).toUpperCase() + w.slice(1)).join('')}`],
+      type: reportType,
+      eventName: resolvedEventName,
+      eventId: actualEventId,
+      hubName: hubName,
+      hubId: actualHubId,
+      completionDate: completionDate || 'Recently',
+      participantCount: pVolInvolved ? Number(pVolInvolved) : 10,
+      attendanceRate: pAttendanceRate ? Number(pAttendanceRate) : undefined,
+      impactMetrics: impactData
+    });
+
+    // Reset Form
     setPostText('');
-    setPostTag('#General');
+    setReportType('event_recap');
+    setSelectedHubId('');
+    setSelectedEventId('');
+    setCustomEventName('');
+    setCompletionDate('Today');
+    setPVolInvolved('');
+    setPVolHours('');
+    setPAttendanceRate('100');
+    setPTreesPlanted('');
+    setPWasteCollected('');
+    setPDistanceCovered('');
+    setPFundsRaised('');
     setShowCreateModal(false);
+  };
+
+  const handleUpdateOutcome = (postId: string, type: 'appreciates' | 'inspirations' | 'participated') => {
+    if (!isLoggedIn) {
+      onShowAuthModal();
+      return;
+    }
+    if (onUpdateFeedback) {
+      onUpdateFeedback(postId, type);
+    } else {
+      alert(`Outcome feedback registered: ${type}!`);
+    }
   };
 
   const handleAddComment = (postId: string) => {
@@ -73,184 +212,306 @@ export default function FeedTab({
       return;
     }
     if (!commentText.trim()) return;
-    // Increment local state comments count or mock alert
-    alert(`Success: Your comment has been posted to this cluster update!`);
+    alert(`Success: Your note of support has been posted back to this community history record discussion!`);
     setCommentText('');
     setActiveCommentsPostId(null);
   };
 
+  const submitPostReport = (postId: string) => {
+    if (!reportReason.trim()) return;
+    if (onReportPost) {
+      onReportPost(postId, reportReason);
+      alert('Report submitted. Safety moderators will review this activity log entry.');
+    }
+    setReportReason('');
+    setReportedPostId(null);
+  };
+
+  // Sort: Prioritize posts with highest volunteer statistics first, focusing on real-world impact.
+  const getImpactRank = (p: FeedPost) => {
+    let score = 0;
+    if (p.volunteerHours) score += p.volunteerHours * 2;
+    if (p.participantCount) score += p.participantCount;
+    if (p.attendanceRate) score += p.attendanceRate;
+    if (p.image) score += 20; // Completed events with visual history are ranked higher
+    return score;
+  };
+
+  const sortedPosts = [...posts].sort((a, b) => getImpactRank(b) - getImpactRank(a));
+
+  // Handle selected filters
+  const filteredPosts = sortedPosts.filter(post => {
+    const matchesTag = selectedTag === 'All' || post.tags.some(t => t.toLowerCase() === selectedTag.toLowerCase());
+    const matchesType = selectedType === 'All' || post.type === selectedType;
+    return matchesTag && matchesType;
+  });
+
+  // Helper text mapping based on type
+  const getTypeBadge = (type?: string) => {
+    switch(type) {
+      case 'event_recap':
+        return <span className="text-[10px] bg-emerald-100 text-emerald-800 px-2.5 py-0.5 rounded-full font-black uppercase tracking-wider">✓ Event Recap</span>;
+      case 'hub_milestone':
+        return <span className="text-[10px] bg-amber-100 text-amber-800 px-2.5 py-0.5 rounded-full font-black uppercase tracking-wider">🏆 Hub Milestone</span>;
+      case 'thank_you_note':
+        return <span className="text-[10px] bg-sky-100 text-sky-800 px-2.5 py-0.5 rounded-full font-black uppercase tracking-wider">🙌 Thank You Note</span>;
+      case 'outcome_report':
+        return <span className="text-[10px] bg-purple-100 text-purple-900 px-2.5 py-0.5 rounded-full font-black uppercase tracking-wider">📊 Outcome Report</span>;
+      default:
+        return <span className="text-[10px] bg-neutral-100 text-neutral-800 px-2.5 py-0.5 rounded-full font-black uppercase tracking-wider">✓ Participated</span>;
+    }
+  };
+
   return (
     <div className="pb-16 relative">
-      {/* Horizontal Category Chips */}
-      <section className="mb-6 overflow-x-auto hide-scrollbar flex gap-2 py-2 shrink-0">
-        {tagsList.map(tag => (
-          <button
-            key={tag}
-            onClick={() => setSelectedTag(tag)}
-            className={`whitespace-nowrap px-4 py-2 rounded-full font-semibold text-xs tracking-tight transition-all cursor-pointer ${
-              (selectedTag === 'All' && tag === 'All') || selectedTag === tag
-                ? 'bg-primary text-on-primary shadow-sm'
-                : 'bg-tertiary-container/10 text-tertiary hover:bg-tertiary-container/20'
-            }`}
+      
+      {/* Super Compact Navigation & Filter Header */}
+      <div className="flex items-center justify-between mb-4 pb-2 border-b border-outline-variant/10 select-none text-on-surface">
+        <div className="flex items-center gap-1.5">
+          <CheckCircle2 className="w-4 h-4 text-emerald-600 shrink-0" />
+          <span className="font-sans font-bold text-xs uppercase tracking-wider text-on-surface">Activity Stream</span>
+        </div>
+        
+        <div className="flex items-center gap-2">
+          {/* Compact type filter select dropdown */}
+          <select
+            value={selectedType}
+            onChange={(e) => setSelectedType(e.target.value)}
+            className="bg-neutral-50 hover:bg-neutral-100 text-[10px] font-bold py-1 px-1.5 rounded border border-outline-variant/20 focus:outline-none cursor-pointer"
           >
-            {tag === 'All' ? 'All Feed' : tag}
-          </button>
-        ))}
-      </section>
+            {typeFilters.map(filter => (
+              <option key={filter.key} value={filter.key}>{filter.label}</option>
+            ))}
+          </select>
 
-      {/* Feed Stream */}
+          {/* Compact visual category filter select dropdown */}
+          <select
+            value={selectedTag}
+            onChange={(e) => setSelectedTag(e.target.value)}
+            className="bg-neutral-50 hover:bg-neutral-100 text-[10px] font-bold py-1 px-1.5 rounded border border-outline-variant/20 focus:outline-none cursor-pointer"
+          >
+            {tagsList.map(tag => (
+              <option key={tag} value={tag}>{tag === 'All' ? 'Categories' : tag}</option>
+            ))}
+          </select>
+        </div>
+      </div>
+
+      {/* Structured Activity stream */}
       <div className="space-y-6">
         {filteredPosts.length === 0 ? (
-          <div className="p-12 text-center bg-white rounded-3xl border border-outline-variant/30 shadow-xs">
-            <p className="text-on-surface-variant text-sm">No updates currently available in {selectedTag}.</p>
+          <div className="p-16 text-center bg-white rounded-2xl border border-outline-variant/20 shadow-3xs max-w-lg mx-auto">
+            <div className="w-12 h-12 bg-neutral-100 rounded-full flex items-center justify-center mx-auto mb-3">
+              <FileText className="w-6 h-6 text-outline" />
+            </div>
+            <p className="text-on-surface-variant font-bold text-sm">No activity records logged under these filters.</p>
+            <p className="text-xs text-outline mt-1">Select other visual filters or contribute by reporting real outcomes!</p>
             <button 
-              onClick={() => setSelectedTag('All')}
-              className="mt-3 text-primary text-sm font-bold hover:underline cursor-pointer"
+              onClick={() => { setSelectedTag('All'); setSelectedType('All'); }}
+              className="mt-4 text-primary text-xs font-black hover:underline cursor-pointer"
             >
-              Reset to all updates
+              Reset view criteria
             </button>
           </div>
         ) : (
           filteredPosts.map((post) => {
-            const hasPotteryGrid = post.image === 'POTTERY_GRID';
-            
             return (
               <article 
                 key={post.id} 
-                className="bg-surface-container-lowest rounded-2xl border border-outline-variant/20 overflow-hidden shadow-xs hover:shadow-md transition-shadow relative"
+                className="bg-white rounded-2xl border border-outline-variant/25 overflow-hidden shadow-3xs hover:shadow-2xs transition-all relative"
               >
-                {/* Post Author Bar */}
-                <div className="p-4 flex items-center justify-between">
-                  <div className="flex items-center gap-3">
-                    <img 
-                      src={post.avatar} 
-                      alt={post.author} 
-                      className="w-11 h-11 rounded-full object-cover shadow-xs border border-outline-variant/10" 
-                    />
-                    <div>
-                      <p className="font-bold text-sm text-on-surface">{post.author}</p>
-                      <p className="text-[11px] text-on-surface-variant">{post.subtext}</p>
-                    </div>
+                
+                {/* Header Meta: Record Source & Tag */}
+                <div className="px-5 pt-4 pb-3 border-b border-light select-none flex justify-between items-center gap-2">
+                  <div className="flex items-center gap-1.5">
+                    {getTypeBadge(post.type)}
+                    {post.tags?.[0] && (
+                      <span className="text-[10px] text-outline font-semibold flex items-center gap-0.5">
+                        <Tag className="w-2.5 h-2.5" /> {post.tags[0]}
+                      </span>
+                    )}
                   </div>
-                  <button className="text-on-surface-variant hover:text-on-surface hover:bg-surface-container p-1 rounded-full cursor-pointer">
-                    <MoreVertical className="w-5 h-5 text-outline" />
-                  </button>
+                  <span className="text-[10px] text-outline font-bold flex items-center gap-1">
+                    <Clock className="w-3 h-3" /> {post.completionDate || 'May 2026'}
+                  </span>
                 </div>
 
-                {/* Post Graphic Media */}
-                {post.image && !hasPotteryGrid && (
-                  <div className="aspect-video w-full overflow-hidden bg-surface-container-high border-y border-outline-variant/15">
+                {/* Structured Event/Hub Reference Bar */}
+                <div className="bg-neutral-50/80 p-4 border-b border-outline-variant/15 flex flex-col sm:flex-row sm:items-center justify-between gap-3 select-none">
+                  <div>
+                    <h4 className="text-xs font-black text-on-surface uppercase tracking-wide">
+                      {post.eventName || 'Community Gathering'}
+                    </h4>
+                    {post.hubName && (
+                      <p className="text-[10px] text-on-surface-variant font-bold mt-0.5 flex items-center gap-1">
+                        <Users className="w-3.5 h-3.5 text-primary" /> Hub: {post.hubName}
+                      </p>
+                    )}
+                    <p className="text-[10px] text-outline mt-0.5">
+                      Organized & Certified by: <b>{post.author}</b> {post.authorVerification === 'Trusted Organizer' ? '🛡' : '✓'}
+                    </p>
+                  </div>
+
+                  <div className="flex items-center gap-2">
+                    {post.eventId && onViewEvent && (
+                      <button 
+                        onClick={() => onViewEvent(post.eventId!)}
+                        className="text-[10.5px] bg-primary text-on-primary font-black px-3 py-1.5 rounded-xl active:scale-95 transition-all cursor-pointer inline-flex items-center gap-0.5 whitespace-nowrap"
+                      >
+                        View Event
+                      </button>
+                    )}
+
+                    {post.hubId && onViewHub && (
+                      <button 
+                        onClick={() => onViewHub(post.hubId!)}
+                        className="text-[10.5px] bg-white text-on-surface border border-outline-variant/30 font-black px-3 py-1.5 rounded-xl active:scale-95 transition-all cursor-pointer inline-flex items-center gap-0.5 hover:bg-neutral-55 whitespace-nowrap"
+                      >
+                        View Hub
+                      </button>
+                    )}
+                  </div>
+                </div>
+
+                {/* Image Grid section if available */}
+                {post.image && (
+                  <div className="aspect-video w-full overflow-hidden bg-neutral-100 border-b border-light relative">
                     <img 
                       src={post.image} 
-                      alt="Local update capture" 
+                      alt="Completed community work" 
                       className="w-full h-full object-cover" 
                     />
+                    {post.completionDate && (
+                      <div className="absolute bottom-3 left-3 bg-black/75 text-white text-[9px] font-bold px-2 py-0.5 rounded uppercase tracking-wider">
+                        📸 Certified Record
+                      </div>
+                    )}
                   </div>
                 )}
 
-                {/* Handled special pottery image grid as seen in Marcus post screen */}
-                {hasPotteryGrid && (
-                  <div className="grid grid-cols-2 gap-1 h-[260px] bg-surface-container-high border-y border-outline-variant/15">
-                    <div className="overflow-hidden">
-                      <img 
-                        src="https://lh3.googleusercontent.com/aida-public/AB6AXuCTxNxqYQKa2JBxUFde8CsL-7LAktWdaQwEPZGC9xRsAz4UC8iUUmjfxV5QanICzdKxMVPvX2cFkzNGvVvlwwYJ8xheAL5JZIh9Gdxw9lpqtkJnjW0SfEfVImqbOFU7fTSmKpeFixjWFqOtt6gSTstG5LRhJW_gATy3lwVnNdmS3JPr7J6MxZHffOYxGhqIwncWi3UpNJLg22rM5qQ-nb6DK6EXLY9fCATYRjcFNVxTrQCrdHE5-DzSZCNMSeItzpywAhZ5_1SjGig" 
-                        alt="Handcrafted ceramic process" 
-                        className="w-full h-full object-cover hover:scale-105 transition-all duration-500" 
-                      />
+                {/* Engagement / Outcome Metric Dashboard */}
+                <div className="px-5 pt-4">
+                  <div className="grid grid-cols-3 gap-2 text-center text-on-surface">
+                    <div className="bg-neutral-50 p-2.5 rounded-xl border border-light">
+                      <p className="text-[8px] uppercase text-outline font-black">Participants Involved</p>
+                      <p className="text-xs font-black text-primary mt-0.5">
+                        👥 {post.participantCount || post.impactMetrics?.participantsInvolved || 12}
+                      </p>
                     </div>
-                    <div className="overflow-hidden">
-                      <img 
-                        src="https://lh3.googleusercontent.com/aida-public/AB6AXuBnHgfTF9gJqxc7Y2BXHI928Yq4RQplbkX-Bw3YYdUFO5h_ijhhyQhmd7UGrhScX22ycPteHnxOUWaF-U8yXOy12D_W4F7x_3gr88cbGxFq9MKO_X30I1zsEhhJa-rn5UGLpU5sYfOF85I_iNCl03RoUyq28N1Mkl-TubS879vqW0gg6NrwYyIpgIXzEARbNgWgswXR6y7jsv0XS5TiCU9_cPqK6tjncUC5_JHgu7IFMcSs90fh3zruhXGNQMNkyxOepc-dgVb7FvE" 
-                        alt="Pastel pottery collections glazes" 
-                        className="w-full h-full object-cover hover:scale-105 transition-all duration-500" 
-                      />
+
+                    <div className="bg-neutral-50 p-2.5 rounded-xl border border-light">
+                      <p className="text-[8px] uppercase text-outline font-black">Attendance Rate</p>
+                      <p className="text-xs font-black text-secondary mt-0.5">
+                        📈 {post.attendanceRate ? `${post.attendanceRate}%` : '100%'}
+                      </p>
+                    </div>
+
+                    <div className="bg-neutral-50 p-2.5 rounded-xl border border-light">
+                      <p className="text-[8px] uppercase text-outline font-black">Volunteer Hours</p>
+                      <p className="text-xs font-black text-emerald-700 mt-0.5">
+                        ⏱ {post.volunteerHours || post.impactMetrics?.volunteerHours || 24} hrs
+                      </p>
                     </div>
                   </div>
-                )}
 
-                {/* Custom Quote Layout (Elena post) */}
-                {post.quote && (
-                  <div className="px-4 pb-3">
-                    <div className="rounded-xl border border-outline-variant/20 bg-surface-container-low p-4 italic text-on-surface-variant text-sm leading-relaxed shrink-0">
-                      {post.quote.text}
+                  {/* Quantified Specific Accomplishments Indicators */}
+                  {post.impactMetrics && (post.impactMetrics.treesPlanted || post.impactMetrics.wasteCollectedKg || post.impactMetrics.distanceCoveredKm || post.impactMetrics.fundsRaised) && (
+                    <div className="mt-2.5 p-3 bg-emerald-50/40 border border-emerald-100/50 rounded-xl flex flex-wrap gap-2.5 items-center select-none">
+                      <p className="text-[8.5px] uppercase font-black text-emerald-900 tracking-wider">Outcome Metrics:</p>
+                      <div className="flex flex-wrap gap-1.5 shrink-0">
+                        {post.impactMetrics.treesPlanted && (
+                          <span className="text-[10px] bg-white text-emerald-800 px-2 py-0.5 rounded border border-emerald-100 font-extrabold font-mono">
+                            🌳 {post.impactMetrics.treesPlanted} saplings
+                          </span>
+                        )}
+                        {post.impactMetrics.wasteCollectedKg && (
+                          <span className="text-[10px] bg-white text-emerald-800 px-2 py-0.5 rounded border border-emerald-100 font-extrabold font-mono">
+                            🗑 {post.impactMetrics.wasteCollectedKg}kg trash collected
+                          </span>
+                        )}
+                        {post.impactMetrics.distanceCoveredKm && (
+                          <span className="text-[10px] bg-white text-sky-805 px-2 py-0.5 rounded border border-sky-100 font-extrabold font-mono">
+                            🚴 {post.impactMetrics.distanceCoveredKm}km traversed
+                          </span>
+                        )}
+                        {post.impactMetrics.fundsRaised && (
+                          <span className="text-[10px] bg-white text-amber-805 px-2 py-0.5 rounded border border-amber-100 font-extrabold font-mono">
+                            💰 ${post.impactMetrics.fundsRaised} raised
+                          </span>
+                        )}
+                      </div>
                     </div>
-                  </div>
-                )}
+                  )}
+                </div>
 
-                {/* Content text metadata and interactive keys */}
-                <div className="p-4">
+                {/* Content text */}
+                <div className="px-5 pb-4 pt-3">
                   {post.text && (
-                    <p className="text-sm text-on-surface leading-relaxed mb-3">
+                    <p className="text-xs md:text-sm text-on-surface leading-normal mb-4 font-normal">
                       {post.text}
                     </p>
                   )}
 
-                  {/* Dynamic hashtags */}
-                  {post.tags.length > 0 && (
-                    <div className="flex flex-wrap gap-1.5 mb-4 shrink-0">
-                      {post.tags.map(t => (
-                        <span key={t} className="text-secondary font-bold text-xs">
-                          {t}
-                        </span>
-                      ))}
-                    </div>
-                  )}
-
-                  {/* Footer interaction buttons */}
-                  <div className="flex items-center justify-between pt-3 border-t border-outline-variant/15">
-                    <div className="flex items-center gap-6">
+                  {/* Redesigned Outcomes Reactions Row instead of generic social updates */}
+                  <div className="flex items-center justify-between pt-3.5 border-t border-light text-xs">
+                    <div className="flex flex-wrap gap-2">
                       <button 
-                        onClick={() => onToggleLike(post.id)}
-                        className={`flex items-center gap-1.5 transition-colors cursor-pointer group ${
-                          post.isLiked ? 'text-primary' : 'text-on-surface-variant hover:text-primary'
+                        onClick={() => handleUpdateOutcome(post.id, 'appreciates')}
+                        className={`flex items-center gap-1 py-1 px-3 rounded-full transition-all cursor-pointer text-[10.5px] border ${
+                          post.isAppreciated ? 'bg-amber-50 text-amber-900 border-amber-200 font-extrabold' : 'bg-white hover:bg-neutral-50 border-neutral-200 text-on-surface-variant'
                         }`}
+                        title="Celebrate this community achievement"
                       >
-                        <Heart className={`w-5 h-5 group-active:scale-125 transition-transform ${post.isLiked ? 'fill-current' : ''}`} />
-                        <span className="text-xs font-semibold">{post.likes}</span>
+                        <span>🙌</span>
+                        <span>Appreciate</span>
+                        <span className="bg-black/5 px-1 rounded text-[10px]">{post.appreciates}</span>
                       </button>
                       
                       <button 
-                        onClick={() => setActiveCommentsPostId(activeCommentsPostId === post.id ? null : post.id)}
-                        className={`flex items-center gap-1.5 text-on-surface-variant hover:text-primary transition-colors cursor-pointer ${
-                          activeCommentsPostId === post.id ? 'text-primary' : ''
+                        onClick={() => handleUpdateOutcome(post.id, 'inspirations')}
+                        className={`flex items-center gap-1 py-1 px-3 rounded-full transition-all cursor-pointer text-[10.5px] border ${
+                          post.isInspired ? 'bg-primary/5 text-primary border-primary/25 font-extrabold' : 'bg-white hover:bg-neutral-50 border-neutral-200 text-on-surface-variant'
                         }`}
+                        title="Inspired me to act"
                       >
-                        <MessageSquare className="w-5 h-5" />
-                        <span className="text-xs font-semibold">{post.commentsCount}</span>
+                        <span>💡</span>
+                        <span>Inspired Me</span>
+                        <span className="bg-black/5 px-1 rounded text-[10px]">{post.inspirations}</span>
+                      </button>
+
+                      <button 
+                        onClick={() => handleUpdateOutcome(post.id, 'participated')}
+                        className={`flex items-center gap-1 py-1 px-3 rounded-full transition-all cursor-pointer text-[10.5px] border ${
+                          post.isParticipated ? 'bg-emerald-50 text-emerald-900 border-emerald-200 font-extrabold' : 'bg-white hover:bg-neutral-50 border-neutral-200 text-on-surface-variant'
+                        }`}
+                        title="I also participated in this action"
+                      >
+                        <span>✅</span>
+                        <span>Participated</span>
+                        <span className="bg-black/5 px-1 rounded text-[10px]">{post.participated}</span>
                       </button>
                     </div>
 
-                    <div className="flex items-center gap-4">
+                    <div className="flex items-center gap-2">
                       <button 
-                        onClick={() => {
-                          const link = window.location.href;
-                          navigator.clipboard.writeText(link);
-                          alert('Success: Community share link copied to clipboard!');
-                        }}
-                        className="text-on-surface-variant hover:text-primary transition-colors cursor-pointer"
+                        onClick={() => setActiveCommentsPostId(activeCommentsPostId === post.id ? null : post.id)}
+                        className={`hover:text-primary transition-colors cursor-pointer text-on-surface-variant font-bold flex items-center gap-1 text-[11px] bg-neutral-105 px-2.5 py-1 rounded-lg border`}
                       >
-                        <Share2 className="w-5 h-5" />
-                      </button>
-                      <button 
-                        onClick={() => onToggleBookmark(post.id)}
-                        className={`transition-colors cursor-pointer ${
-                          post.isBookmarked ? 'text-primary' : 'text-on-surface-variant hover:text-primary'
-                        }`}
-                      >
-                        <Bookmark className={`w-5 h-5 ${post.isBookmarked ? 'fill-current' : ''}`} />
+                        <MessageSquare className="w-3.5 h-3.5 text-outline" />
+                        <span>Discuss Outcome ({post.commentsCount})</span>
                       </button>
                     </div>
                   </div>
 
-                  {/* Active Comment Drawer panel */}
+                  {/* Active Comment entry drawer */}
                   {activeCommentsPostId === post.id && (
                     <div className="mt-4 pt-3 border-t border-outline-variant/10 flex gap-2">
                       <input 
                         type="text"
-                        placeholder="Add a public comment..."
+                        placeholder="Add a support note or memory on outcome..."
                         value={commentText}
                         onChange={(e) => setCommentText(e.target.value)}
-                        className="flex-grow bg-surface-container-low border-none rounded-xl text-xs px-3 focus:ring-1 focus:ring-primary focus:outline-none placeholder:text-outline text-on-surface py-2"
+                        className="flex-grow bg-surface-container-low border border-neutral-200 rounded-xl text-xs px-3 focus:ring-1 focus:ring-primary focus:outline-none placeholder:text-outline text-on-surface py-2"
                         onKeyDown={(e) => e.key === 'Enter' && handleAddComment(post.id)}
                       />
                       <button 
@@ -262,113 +523,277 @@ export default function FeedTab({
                     </div>
                   )}
 
+                  {/* Flag / Moderation triggers */}
+                  <div className="mt-3 flex justify-end select-none">
+                    <button 
+                      onClick={() => setReportedPostId(post.id)}
+                      className="text-[9px] text-red-600 font-bold px-1.5 py-0.5 hover:bg-red-50 rounded"
+                    >
+                      ⚠️ Flag Out-of-Scope Outcome
+                    </button>
+                  </div>
+
                 </div>
               </article>
             );
           })
         )}
-
-        {/* Suggestion BBQ Callout Box as seen in bottom of screen */}
-        {selectedTag === 'All' && (
-          <aside className="bg-secondary-container/10 rounded-2xl p-4 border border-secondary-container/30 flex items-center gap-4 mt-4 select-none">
-            <div className="w-14 h-14 rounded-xl bg-secondary-container flex items-center justify-center text-on-secondary-container shrink-0 font-bold">
-              🔥
-            </div>
-            <div className="flex-1 min-w-0">
-              <p className="text-[10px] font-bold text-secondary uppercase tracking-wider">Recommended for you</p>
-              <h3 className="font-bold text-sm text-on-surface truncate">Backyard BBQ Enthusiasts</h3>
-              <p className="text-on-surface-variant text-xs mt-0.5">42 members active now</p>
-            </div>
-            <button 
-              onClick={() => {
-                if (!isLoggedIn) {
-                  onShowAuthModal();
-                  return;
-                }
-                setBbqJoined(!bbqJoined);
-                alert(bbqJoined ? 'You left Sandbox Backyard BBQ.' : 'Success: Joined Backyard BBQ Enthusiasts!');
-              }}
-              className={`px-4 py-2 rounded-full font-bold text-xs active:scale-90 transition-all shrink-0 cursor-pointer ${
-                bbqJoined 
-                  ? 'bg-surface-container-high text-on-surface'
-                  : 'bg-primary text-on-primary hover:bg-primary/95'
-              }`}
-            >
-              {bbqJoined ? 'Joined' : 'Join'}
-            </button>
-          </aside>
-        )}
       </div>
 
-      {/* Floating Action Button (FAB) at bottom-right of screen */}
-      <button 
-        onClick={() => {
-          if (!isLoggedIn) {
-            onShowAuthModal();
-            return;
-          }
-          setShowCreateModal(true);
-        }}
-        className="fixed bottom-24 right-6 w-14 h-14 bg-primary text-on-primary rounded-2xl shadow-xl flex items-center justify-center active:scale-95 transition-transform z-40 cursor-pointer shadow-primary/20"
-      >
-        <Plus className="w-6 h-6 animate-pulse" />
-      </button>
 
-      {/* Full Creating Post Modal over current canvas */}
+
+      {/* Structured Outcomes Log Creation Modal */}
       {showCreateModal && (
-        <div className="fixed inset-0 bg-black/60 backdrop-blur-xs flex items-center justify-center p-4 z-50">
-          <div className="bg-surface rounded-2xl w-full max-w-md p-6 shadow-xl relative animate-in fade-in zoom-in-95 duration-200">
-            <h3 className="text-lg font-bold text-on-surface mb-1">Create Update</h3>
-            <p className="text-xs text-on-surface-variant mb-4">Share what your community is up to</p>
+        <div className="fixed inset-0 bg-black/60 backdrop-blur-xs flex items-center justify-center p-4 z-50 overflow-y-auto">
+          <div className="bg-surface rounded-2xl w-full max-w-md p-6 shadow-xl relative animate-in fade-in zoom-in-95 duration-200 my-8 border border-neutral-100">
+            <button 
+              onClick={() => setShowCreateModal(false)}
+              className="absolute top-4 right-4 text-on-surface hover:bg-surface-container p-1 rounded-full cursor-pointer"
+            >
+              <svg className="w-4.5 h-4.5" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth="2" stroke="currentColor">
+                <path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" />
+              </svg>
+            </button>
             
-            <form onSubmit={handleCreatePost} className="space-y-4">
+            <h3 className="text-base font-black text-on-surface mb-1 uppercase tracking-wide">Record Completed Activity</h3>
+            <p className="text-xs text-on-surface-variant mb-4">
+              Publish structured milestones, completed event summaries, outcome reports, or public thank you notes. Arbitrary off-topic posts are strictly prohibited.
+            </p>
+            
+            <form onSubmit={handleCreatePostSubmit} className="space-y-4">
+              
+              {/* Type selection */}
               <div>
-                <label className="block text-xs font-bold text-on-surface mb-1">Update Copy</label>
-                <textarea
-                  rows={4}
-                  required
-                  placeholder="Conquered a ridge? Finished a painting? Share here..."
-                  value={postText}
-                  onChange={(e) => setPostText(e.target.value)}
-                  className="w-full p-3 bg-surface-container-low border border-outline-variant/30 rounded-xl text-sm focus:ring-1 focus:ring-primary focus:outline-none placeholder:text-outline text-on-surface resize-none"
-                />
-              </div>
-
-              <div>
-                <label className="block text-xs font-bold text-on-surface mb-1">Primary Hashtag</label>
+                <label className="block text-[10px] font-black text-outline uppercase mb-1">Select Activity Type *</label>
                 <select
-                  value={postTag}
-                  onChange={(e) => setPostTag(e.target.value)}
-                  className="w-full p-2 bg-surface-container-low border border-outline-variant/30 rounded-xl text-xs focus:ring-1 focus:ring-primary text-on-surface"
+                  value={reportType}
+                  onChange={(e) => setReportType(e.target.value as any)}
+                  className="w-full h-10 px-3 bg-surface-container-low border border-outline-variant/30 rounded-xl text-xs font-bold"
                 >
-                  <option value="#Community">#Community</option>
-                  <option value="#Hiking">#Hiking</option>
-                  <option value="#Pottery">#Pottery</option>
-                  <option value="#Cooking">#Cooking</option>
-                  <option value="#Yoga">#Yoga</option>
-                  <option value="#General">#General</option>
+                  <option value="event_recap">Event Successfully Completed (Recap)</option>
+                  <option value="hub_milestone">Hub Milestone & Gather Count Achievement</option>
+                  <option value="thank_you_note">Public Thank You Note & Outcome Summary</option>
+                  <option value="outcome_report">Quantified Impact & Outcome Report</option>
                 </select>
               </div>
 
-              <div className="flex gap-2 justify-end pt-3">
-                <button
-                  type="button"
-                  onClick={() => setShowCreateModal(false)}
-                  className="px-4 py-2 text-xs font-bold text-outline rounded-xl hover:bg-surface-container"
+              {/* Hub Dropdown */}
+              <div>
+                <label className="block text-[10px] font-black text-outline uppercase mb-1">Community Hub Origin *</label>
+                <select
+                  required
+                  value={selectedHubId}
+                  onChange={(e) => setSelectedHubId(e.target.value)}
+                  className="w-full h-10 px-3 bg-surface-container-low border border-outline-variant/30 rounded-xl text-xs font-semibold"
                 >
-                  Cancel
-                </button>
-                <button
-                  type="submit"
-                  className="px-4 py-2 bg-primary text-on-primary text-xs font-bold rounded-xl active:scale-95 transition-transform"
-                >
-                  Post Now
-                </button>
+                  <option value="">-- Choose Hub --</option>
+                  {hubs.map(hub => (
+                    <option key={hub.id} value={hub.id}>{hub.name} ({hub.tag})</option>
+                  ))}
+                </select>
               </div>
+
+              {/* Event Dropdown mapping */}
+              <div>
+                <label className="block text-[10px] font-black text-outline uppercase mb-1">Completed Event / Accomplishment Context</label>
+                <div className="space-y-2">
+                  <select
+                    value={selectedEventId}
+                    onChange={(e) => {
+                      setSelectedEventId(e.target.value);
+                      if (e.target.value) setCustomEventName('');
+                    }}
+                    className="w-full h-10 px-3 bg-surface-container-low border border-outline-variant/30 rounded-xl text-xs"
+                  >
+                    <option value="">-- Select Event if applicable --</option>
+                    {events.map(ev => (
+                      <option key={ev.id} value={ev.id}>{ev.title}</option>
+                    ))}
+                  </select>
+                  {!selectedEventId && (
+                    <input 
+                      type="text"
+                      placeholder="Or specify gathering / accomplishment custom title"
+                      value={customEventName}
+                      onChange={(e) => setCustomEventName(e.target.value)}
+                      className="w-full h-10 px-3 bg-surface-container-low border border-outline-variant/30 rounded-xl text-xs"
+                    />
+                  )}
+                </div>
+              </div>
+
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <label className="block text-[10px] font-black text-outline uppercase mb-1">Completion Date *</label>
+                  <input 
+                    type="text" 
+                    required
+                    placeholder="e.g. May 23rd, 2026"
+                    value={completionDate}
+                    onChange={(e) => setCompletionDate(e.target.value)}
+                    className="w-full h-10 px-3 bg-surface-container-low border border-outline-variant/30 rounded-xl text-xs"
+                  />
+                </div>
+
+                <div>
+                  <label className="block text-[10px] font-black text-outline uppercase mb-1">Participants *</label>
+                  <input 
+                    type="number" 
+                    required
+                    placeholder="e.g. 15"
+                    value={pVolInvolved}
+                    onChange={(e) => setPVolInvolved(e.target.value)}
+                    className="w-full h-10 px-3 bg-surface-container-low border border-outline-variant/30 rounded-xl text-xs"
+                  />
+                </div>
+              </div>
+
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <label className="block text-[10px] font-black text-outline uppercase mb-1">Volunteer Hours *</label>
+                  <input 
+                    type="number" 
+                    required
+                    placeholder="e.g. 60"
+                    value={pVolHours}
+                    onChange={(e) => setPVolHours(e.target.value)}
+                    className="w-full h-10 px-3 bg-surface-container-low border border-outline-variant/30 rounded-xl text-xs"
+                  />
+                </div>
+
+                <div>
+                  <label className="block text-[10px] font-black text-outline uppercase mb-1">Attendance Rate (%)</label>
+                  <input 
+                    type="number" 
+                    placeholder="e.g. 95"
+                    value={pAttendanceRate}
+                    onChange={(e) => setPAttendanceRate(e.target.value)}
+                    className="w-full h-10 px-3 bg-surface-container-low border border-outline-variant/30 rounded-xl text-xs"
+                  />
+                </div>
+              </div>
+
+              <div>
+                <label className="block text-[10px] font-black text-outline uppercase mb-1">Summarize Achievements & Outcomes *</label>
+                <textarea
+                  rows={3}
+                  required
+                  placeholder="Focus purely on accomplished outcomes, impact stats, thank you notes, or community milestones. Avoid generic social media opinions."
+                  value={postText}
+                  onChange={(e) => setPostText(e.target.value)}
+                  className="w-full p-3 bg-surface-container-low border border-outline-variant/30 rounded-xl text-xs focus:ring-1 focus:ring-primary focus:outline-none text-on-surface resize-none focus:bg-white"
+                />
+              </div>
+
+              {/* Quantified Impact Indicators Panel */}
+              <div className="p-3.5 bg-neutral-50 rounded-xl border border-light space-y-2.5">
+                <p className="text-[9px] uppercase font-black text-outline">Optionally log quantified outcome statistics</p>
+                <div className="grid grid-cols-2 gap-2 text-[11px]">
+                  <div>
+                    <label className="block text-[8px] font-bold text-outline uppercase mb-0.5">Trees Planted</label>
+                    <input 
+                      type="number" 
+                      placeholder="e.g. 25"
+                      value={pTreesPlanted}
+                      onChange={(e) => setPTreesPlanted(e.target.value)}
+                      className="w-full h-8 px-2 bg-white border border-neutral-200 rounded text-[11px]"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-[8px] font-bold text-outline uppercase mb-0.5">Waste Cleared (Kg)</label>
+                    <input 
+                      type="number" 
+                      placeholder="e.g. 150"
+                      value={pWasteCollected}
+                      onChange={(e) => setPWasteCollected(e.target.value)}
+                      className="w-full h-8 px-2 bg-white border border-neutral-200 rounded text-[11px]"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-[8px] font-bold text-outline uppercase mb-0.5">Biking Distance (Km)</label>
+                    <input 
+                      type="number" 
+                      placeholder="e.g. 40"
+                      value={pDistanceCovered}
+                      onChange={(e) => setPDistanceCovered(e.target.value)}
+                      className="w-full h-8 px-2 bg-white border border-neutral-200 rounded text-[11px]"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-[8px] font-bold text-outline uppercase mb-0.5">Funds Raised ($)</label>
+                    <input 
+                      type="number" 
+                      placeholder="e.g. 450"
+                      value={pFundsRaised}
+                      onChange={(e) => setPFundsRaised(e.target.value)}
+                      className="w-full h-8 px-2 bg-white border border-neutral-200 rounded text-[11px]"
+                    />
+                  </div>
+                </div>
+              </div>
+
+              <button
+                type="submit"
+                className="w-full py-3 bg-primary hover:bg-primary-dark text-on-primary text-xs font-black rounded-xl active:scale-95 transition-all shadow-md uppercase tracking-wider"
+              >
+                Log Certified Outcome Record
+              </button>
             </form>
           </div>
         </div>
       )}
+
+      {/* Flag Report dialogue modal */}
+      {reportedPostId && (
+        <div className="fixed inset-0 bg-black/60 backdrop-blur-xs flex items-center justify-center p-4 z-50 select-none">
+          <div className="bg-surface rounded-2xl w-full max-w-sm p-6 shadow-xl relative select-none border">
+            <h3 className="font-bold text-sm text-red-600 flex items-center gap-1.5 mb-2 uppercase tracking-wide">
+              <AlertTriangle className="w-5 h-5 text-red-600" /> Flag Activity Record
+            </h3>
+            <p className="text-xs text-on-surface-variant mb-4 leading-relaxed">
+              In order to protect ToGather's strict focus on community action, flag logs containing generic opinions, selfies, dating/matchmaking, or false achievements.
+            </p>
+
+            <div className="space-y-2">
+              {[
+                'Generic social media/personal status post',
+                'Dating / romance solicitations',
+                'Unrelated advertising / spam merchandising',
+                'Inaccurate or simulated outcome data',
+                'Hostile interaction or discourtesy'
+              ].map((opt) => (
+                <button
+                  key={opt}
+                  onClick={() => setReportReason(opt)}
+                  className={`w-full text-left p-2.5 rounded-xl text-xs font-bold border transition-all ${reportReason === opt ? 'bg-primary/5 border-primary text-primary' : 'bg-surface hover:bg-neutral-50 border-neutral-200'}`}
+                >
+                  {opt}
+                </button>
+              ))}
+            </div>
+
+            <div className="flex gap-2 justify-end mt-5 pt-3 border-t border-outline-variant/10">
+              <button 
+                onClick={() => {
+                  setReportedPostId(null);
+                  setReportReason('');
+                }}
+                className="px-4 py-2 text-xs font-bold text-outline rounded-xl hover:bg-surface-container hover:text-on-surface transition-colors cursor-pointer"
+              >
+                Dismiss
+              </button>
+              <button 
+                onClick={() => submitPostReport(reportedPostId)}
+                disabled={!reportReason}
+                className="px-4 py-2 bg-red-600 hover:bg-red-700 disabled:opacity-50 text-white text-xs font-bold rounded-xl h-10 transition-colors"
+              >
+                Flag Activity Record
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
     </div>
   );
 }

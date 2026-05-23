@@ -9,9 +9,10 @@ import { UserPlus, Sparkles, Globe, ShieldCheck } from 'lucide-react';
 interface LandingPageProps {
   onSignUp: () => void;
   onLogIn: () => void;
+  onStaffPortalAccess?: () => void;
 }
 
-export default function LandingPage({ onSignUp, onLogIn }: LandingPageProps) {
+export default function LandingPage({ onSignUp, onLogIn, onStaffPortalAccess }: LandingPageProps) {
   return (
     <div className="relative min-h-screen bg-surface overflow-hidden flex flex-col justify-between">
       {/* Decorative Orbs */}
@@ -118,6 +119,19 @@ export default function LandingPage({ onSignUp, onLogIn }: LandingPageProps) {
           By signing up, you agree to our <span className="underline cursor-pointer hover:text-primary">Terms of Service</span> and{' '}
           <span className="underline cursor-pointer hover:text-primary">Privacy Policy</span>. We prioritize community safety and user-first privacy.
         </p>
+
+        {/* Staff Portal entry trigger */}
+        <div className="mt-8 pt-4 border-t border-outline-variant/10 flex justify-between items-center text-[10px] text-outline opacity-85">
+          <span>ToGather © 2026. Neighborhood safety first architecture.</span>
+          {onStaffPortalAccess && (
+            <button 
+              onClick={onStaffPortalAccess} 
+              className="hover:text-primary transition-colors hover:underline cursor-pointer font-bold uppercase tracking-wider"
+            >
+              Staff Portal Access
+            </button>
+          )}
+        </div>
       </motion.div>
     </div>
   );

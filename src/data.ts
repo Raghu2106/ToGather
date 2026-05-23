@@ -1,127 +1,406 @@
 import { Hub, FeedPost, EventEntity, UserProfile } from './types';
 
+export const APPROVED_CATEGORIES = [
+  'Volunteering & Social Causes',
+  'Environment & Sustainability',
+  'Cycling',
+  'Motorcycling',
+  'Running & Walking',
+  'Trekking & Outdoors',
+  'Fitness & Wellness',
+  'Yoga & Meditation',
+  'Reading & Literature',
+  'Technology & Programming',
+  'Photography & Videography',
+  'Arts & Creativity',
+  'Food & Cooking',
+  'Pets & Animal Welfare',
+  'Entrepreneurship & Startups',
+  'Education & Learning',
+  'Community Development',
+  'Travel & Exploration',
+  'Others'
+];
+
+export const HUB_CATEGORIES = [
+  'Volunteering & Social Causes',
+  'Environment & Sustainability',
+  'Cycling',
+  'Motorcycling',
+  'Running & Walking',
+  'Trekking & Outdoors',
+  'Fitness & Wellness',
+  'Yoga & Meditation',
+  'Reading & Literature',
+  'Technology & Programming',
+  'Photography & Videography',
+  'Arts & Creativity',
+  'Food & Cooking',
+  'Pets & Animal Welfare',
+  'Entrepreneurship & Startups',
+  'Education & Learning',
+  'Community Development',
+  'Travel & Exploration',
+  'Others'
+];
+
 export const INITIAL_HUBS: Hub[] = [
   {
     id: 'hub-1',
-    name: 'City Bike Riders',
-    members: 1200,
+    name: 'Green Earth Volunteers',
+    members: 420,
+    activeMembers: 195,
+    eventsThisMonth: 6,
+    attendanceRate: 94,
+    verifiedEventsCount: 22,
+    rating: 4.9,
+    healthScore: 98,
+    healthLevel: 'Excellent',
     activeNow: true,
-    image: 'https://lh3.googleusercontent.com/aida-public/AB6AXuDmS2uu7hRSmio2nicARqazHAN_5gDxbJ562bWmzC8fa6589u2ignoHXV7LZCj4REu5GOSu7DQSiKaglf5F7n7XjCQkI7dwGZlEp8vz6uxHoIaU4rwUpx-0ulQ4-h-zUr6zyweoEPI2VcErfOUpAnXwz46BXk_RyWdKo0ZovNUBQ9zWCIDPoTxlZst-YoLbVQwEga7xHk3-UbEfjsItHWdjLEL5cfCcwJMIHfl9SEMvHSkeRAy0Ot_yHYwC_QLGPnnGnFdW3CeXfRk',
-    icon: 'Bike',
-    bgColor: 'bg-primary-container',
-    latestUpdate: 'Latest: Rides schedule for Saturday morning trail runs',
+    image: 'https://images.unsplash.com/photo-1542601906990-b4d3fb778b09?w=600&auto=format&fit=crop&q=60',
+    icon: 'Leaf',
+    bgColor: 'bg-emerald-50 text-emerald-900 border-emerald-100',
+    latestUpdate: 'Active community organizing weekly eco interventions, cleanup logs, and forest preservation.',
     latestTime: '10m ago',
-    isJoined: false,
-    tag: '#Hiking'
+    isJoined: true,
+    tag: '#Environment',
+    category: 'Environment & Sustainability',
+    description: 'A vibrant, long-term volunteer collective dedicated to urban forestry, local beach cleanup drives, and municipal eco auditing. We gather recursively every weekend to drive real environmental impact.',
+    lastEventDate: 'May 16th, 2026',
+    gallery: [
+      'https://images.unsplash.com/photo-1542601906990-b4d3fb778b09?w=600&auto=format&fit=crop&q=80',
+      'https://images.unsplash.com/photo-1618477388954-7852f32655ec?w=600&auto=format&fit=crop&q=80',
+      'https://images.unsplash.com/photo-1466692476868-aef1dfb1e735?w=600&auto=format&fit=crop&q=80'
+    ],
+    resources: [
+      'Elmwood Plantation Guidelines v2.pdf',
+      'Safety and Hydration Protocols.pdf',
+      'Local Plant Native Species Catalog'
+    ],
+    announcements: [
+      {
+        id: 'ann-1',
+        senderName: 'David Atten',
+        senderAvatar: 'https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?w=150&auto=format&fit=crop&q=80',
+        senderVerification: 'Trusted Organizer',
+        content: '🚨 Saturday Beach Cleanup location shifted 100m North of the Main Gate due to high tide alerts. Meet at the Lifeguard Tower.',
+        timestamp: '30 mins ago',
+        pinned: true
+      },
+      {
+        id: 'ann-2',
+        senderName: 'David Atten',
+        senderAvatar: 'https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?w=150&auto=format&fit=crop&q=80',
+        senderVerification: 'Trusted Organizer',
+        content: 'Trash picker sticks and double-layer bags will be supplied. Make sure to wear thick boots!',
+        timestamp: '1 day ago'
+      }
+    ],
+    discussionMessages: [
+      {
+        id: 'dm-1',
+        senderName: 'Marcus Chen',
+        senderAvatar: 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=150&auto=format&fit=crop&q=80',
+        senderVerification: 'Member',
+        content: 'Hi David! Will there be parking space close to the lifeguard tower?',
+        timestamp: '15 mins ago'
+      },
+      {
+        id: 'dm-2',
+        senderName: 'David Atten',
+        senderAvatar: 'https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?w=150&auto=format&fit=crop&q=80',
+        senderVerification: 'Trusted Organizer',
+        content: 'Yes Marcus, the North Lot has 50 free spaces on weekends.',
+        timestamp: '10 mins ago'
+      }
+    ]
   },
   {
     id: 'hub-2',
-    name: 'Vintage Car Lovers',
-    members: 842,
-    activeNow: false,
-    image: '',
-    icon: 'Car',
-    bgColor: 'bg-secondary-container',
-    latestUpdate: 'Latest: Classics meet up scheduled on 5th Avenue',
+    name: 'City Bike Riders',
+    members: 1200,
+    activeMembers: 540,
+    eventsThisMonth: 12,
+    attendanceRate: 88,
+    verifiedEventsCount: 45,
+    rating: 4.7,
+    healthScore: 92,
+    healthLevel: 'Excellent',
+    activeNow: true,
+    image: 'https://images.unsplash.com/photo-1485965120184-e220f721d03e?w=600&auto=format&fit=crop&q=60',
+    icon: 'Bike',
+    bgColor: 'bg-sky-50 text-sky-900 border-sky-100',
+    latestUpdate: 'Trail riders and gravel cruisers sharing routes, endurance schedules, and coffee meets.',
     latestTime: '45m ago',
     isJoined: false,
-    tag: '#Cars'
+    tag: '#Cycling',
+    category: 'Cycling',
+    description: 'A long-term, welcoming bicyclist tribe. We conduct weekly morning runs, cross-country trails, safety training, and social coffee runs for amateur and pro riders.',
+    lastEventDate: 'May 20th, 2026',
+    gallery: [
+      'https://images.unsplash.com/photo-1485965120184-e220f721d03e?w=600&auto=format&fit=crop&q=80',
+      'https://images.unsplash.com/photo-1541614101331-1a5a3a194e92?w=600&auto=format&fit=crop&q=80'
+    ],
+    resources: [
+      'Valley Trail GPX Route Map.gpx',
+      'Biking Group Formation Form.pdf'
+    ],
+    announcements: [
+      {
+        id: 'ann-bike-1',
+        senderName: 'Sarah Jenkins',
+        senderAvatar: 'https://images.unsplash.com/photo-1494790108377-be9c29b29330?w=150&auto=format&fit=crop&q=80',
+        senderVerification: 'Trusted Organizer',
+        content: '🌟 Sunday Route features a steep gravel section. Check your tire pressure and bring spare tubes!',
+        timestamp: '2 hours ago',
+        pinned: true
+      }
+    ],
+    discussionMessages: [
+      {
+        id: 'dm-bike-1',
+        senderName: 'Tom Ryder',
+        senderAvatar: 'https://images.unsplash.com/photo-1500648767791-00dcc994a43e?w=150&auto=format&fit=crop&q=80',
+        senderVerification: 'Identity Verified',
+        content: 'Are gravel bikes suited or do we absolutely need a mountain bike?',
+        timestamp: '1 hour ago'
+      },
+      {
+        id: 'dm-bike-2',
+        senderName: 'Sarah Jenkins',
+        senderAvatar: 'https://images.unsplash.com/photo-1494790108377-be9c29b29330?w=150&auto=format&fit=crop&q=80',
+        senderVerification: 'Trusted Organizer',
+        content: 'Gravel bikes with 38mm+ tires will do great! Anything narrower might skid.',
+        timestamp: '45 mins ago'
+      }
+    ]
   },
   {
     id: 'hub-3',
-    name: 'Urban Sketchers',
-    members: 310,
+    name: 'Smart Kids Tutors',
+    members: 145,
+    activeMembers: 82,
+    eventsThisMonth: 4,
+    attendanceRate: 96,
+    verifiedEventsCount: 9,
+    rating: 4.8,
+    healthScore: 85,
+    healthLevel: 'Active',
     activeNow: false,
-    image: '',
-    icon: 'Palette',
-    bgColor: 'bg-tertiary-container',
-    latestUpdate: 'Latest: Sketch walk gallery posted!',
+    image: 'https://images.unsplash.com/photo-1503676260728-1c00da094a0b?w=600&auto=format&fit=crop&q=60',
+    icon: 'GraduationCap',
+    bgColor: 'bg-amber-50 text-amber-900 border-amber-100',
+    latestUpdate: 'Academic supporters conducting recurring classes, quizzes, and distribution sessions.',
     latestTime: '2h ago',
     isJoined: false,
-    tag: '#Pottery'
+    tag: '#Education',
+    category: 'Education & Learning',
+    description: 'An ongoing group of compassionate tutors. We teach primary school subjects and mathematical concepts to children from vulnerable neighborhoods on a recurring basis.',
+    lastEventDate: 'May 18th, 2026',
+    gallery: [
+      'https://images.unsplash.com/photo-1503676260728-1c00da094a0b?w=600&auto=format&fit=crop&q=80'
+    ],
+    resources: [
+      'Elementary Math Tutor Guidepack.pdf',
+      'Behavioral Management Tips.docx'
+    ],
+    announcements: [
+      {
+        id: 'ann-ed-1',
+        senderName: 'Elena Rossi',
+        senderAvatar: 'https://images.unsplash.com/photo-1544005313-94ddf0286df2?w=150&auto=format&fit=crop&q=80',
+        senderVerification: 'Identity Verified',
+        content: 'Primary school tutoring schedules are now synced to Google Meet backups in case of rain.',
+        timestamp: 'Yesterday'
+      }
+    ],
+    discussionMessages: []
   },
   {
     id: 'hub-4',
     name: 'Sunrise Yoga Collective',
-    members: 420,
+    members: 310,
+    activeMembers: 190,
+    eventsThisMonth: 8,
+    attendanceRate: 91,
+    verifiedEventsCount: 16,
+    rating: 4.6,
+    healthScore: 89,
+    healthLevel: 'Active',
     activeNow: true,
-    image: 'https://lh3.googleusercontent.com/aida-public/AB6AXuAT3lWjznU1uV8peg9pUzlJx4byt3gTCUnPZjs3eFunbitcrH_DuDzmMDf5KxFLMXi0eDuL185dT_eLT8rNzxeo8_1a9Dgc9xWlB1YJirHKAWnO4XKVXTIFvV1rpy1pJ_4QvyHnBHbOd0dJHab80dESPvCWa2cqbCdVnnAFBLt-RdovMY60P44g23tqasoXnWgE3m6F_fiXTOIwf3WdiiqC2Mf31WyoGK2FXHftHUlvp1ckq1rBXSIw78DmVEB_GTCS57RipeFC9Go',
-    icon: 'Flame',
-    bgColor: 'bg-primary-container',
-    latestUpdate: 'Latest: New session tomorrow @ 6AM',
-    latestTime: '2m ago',
+    image: 'https://images.unsplash.com/photo-1544367567-0f2fcb009e0b?w=600&auto=format&fit=crop&q=60',
+    icon: 'Activity',
+    bgColor: 'bg-purple-50 text-purple-900 border-purple-100',
+    latestUpdate: 'Vinyasa practitioners and yoga advocates gather weekly in municipal greenery.',
+    latestTime: '12m ago',
     isJoined: true,
-    tag: '#Yoga'
+    tag: '#Wellness',
+    category: 'Yoga & Meditation',
+    description: 'Our persistent yoga wellness sanctuary. We organize weekly outdoor morning flows, breathing exercises, mindfulness activities, and wellness chats.',
+    lastEventDate: 'May 19th, 2026',
+    gallery: [
+      'https://images.unsplash.com/photo-1544367567-0f2fcb009e0b?w=600&auto=format&fit=crop&q=80'
+    ],
+    resources: [
+      'Pranayama Breathing Sequences.pdf'
+    ],
+    announcements: [],
+    discussionMessages: []
   },
   {
     id: 'hub-5',
-    name: 'Gourmet Home Chefs',
-    members: 650,
+    name: 'Paws & Whiskers Rescue',
+    members: 240,
+    activeMembers: 110,
+    eventsThisMonth: 3,
+    attendanceRate: 95,
+    verifiedEventsCount: 12,
+    rating: 4.9,
+    healthScore: 94,
+    healthLevel: 'Active',
     activeNow: false,
-    image: 'https://lh3.googleusercontent.com/aida-public/AB6AXuCONuAVr7BaWfkpwqMk4NBQwltHt5NP0dkps2T5CbndkZrpX2Ylbb6a6x07KnhVMamIRYiUBlHqqclTj5HK-6iy8XbJOKmCZew4VGzL0TNDFSRWL_EfEim7FESOZ2sfm5pwXk12qJweFFgATR8L1xHySYOtkD6hx-k8EBQLa6hOSFjv-6Kygb_Z4ty2NQdUrgsVkv4ZoYM7OGlJw4Hp1VRAgPVti_HzE7KVjzVBxOkmugD2hMAD0Yf6-nEQyh7uWMWsqWV4a8OzyFA',
-    icon: 'Utensils',
-    bgColor: 'bg-secondary-container',
-    latestUpdate: 'Latest: Maria shared a recipe for Truffle Pasta',
-    latestTime: '1h ago',
-    isJoined: true,
-    tag: '#Cooking'
-  },
-  {
-    id: 'hub-6',
-    name: 'Tech & Coffee',
-    members: 1250,
-    activeNow: true,
-    image: 'https://lh3.googleusercontent.com/aida-public/AB6AXuBkEpJh99bcV1fkzsj0Kn738f6eqaKsMicHyUCVI6S8iiVkruj8Q8yKFwwGnKY0bou4pOoLHlFF5l533M6qUs9i3lGm8xuNTLwo8zUagtDllvoZ-xfTXY48v-RQqMjDW3BLvyFVIiy2L14a4fBKntIm5Ihp2cwi1mnSMq_R4dPGuC21XjOsc0nm-l354W3qCqM3EB-8dmlnj86ahT1B3w3rZ4tMGW1dENqzACdtIFrQ-dMiGJZPcIw-CX8YXrdsS4PwQbYSvonAOX4',
-    icon: 'Coffee',
-    bgColor: 'bg-tertiary-container',
-    latestUpdate: 'Latest: 12 new messages',
+    image: 'https://images.unsplash.com/photo-1489632664607-3477b8ec0d61?w=600&auto=format&fit=crop&q=60',
+    icon: 'Heart',
+    bgColor: 'bg-red-50 text-red-900 border-red-100',
+    latestUpdate: 'Dog walkers and cat adopt organizers managing recurring animal aid and trails walks.',
     latestTime: '3h ago',
-    isJoined: true,
-    tag: '#Tech'
+    isJoined: false,
+    tag: '#AnimalWelfare',
+    category: 'Pets & Animal Welfare',
+    description: 'An enduring animal care network. We organize recurring volunteer days for shelter exercise walks, foster parent training, and local rescue adoption drives.',
+    lastEventDate: 'May 16th, 2026',
+    gallery: [
+      'https://images.unsplash.com/photo-1548199973-03cce0bbc87b?w=600&auto=format&fit=crop&q=80'
+    ],
+    resources: [
+      'Foster Parent Manual.pdf',
+      'Shelter Medication Chart.xlsx'
+    ],
+    announcements: [],
+    discussionMessages: []
   }
 ];
 
 export const INITIAL_POSTS: FeedPost[] = [
   {
     id: 'post-1',
-    avatar: 'https://lh3.googleusercontent.com/aida-public/AB6AXuDewz-nkslebqg8xu6GQSQD5eU0ekstdYVOcmpAtTey6dszSya4qwsNNa6a8X-GQ0luEOPRznRNtiJ9Z-cEiSVYCT7zGOu_y6h9vN-DpAMXVlzspk4n_iAyAraYVV1CHoPvNMav8pcZCtneSUSP-D2UB-T16GSGQwh8iLHPgcQ7OrjJ3ycgIHEV166fwAv8V6MsoSrlqiwgiKcVjGdEcp9c8QZ__I7Dor3VwaARQHUrE-B48HeVfSyrk1B2V9TTTKJ5_hodLWuNBDk',
-    author: 'Sarah Jenkins',
-    subtext: '2 hours ago • Sunset Peaks Trail',
-    image: 'https://lh3.googleusercontent.com/aida-public/AB6AXuDg428cZ5c6XVbvzKYep2-mJL60zpGdsbyIxoBGNSqGl0wuKGrcPmBYDb8D0XCPNwmjTUg9HzfyeB6Z0ICbUnbLHdqAh0jqoRXwMPa7W2lEC8nric0Qb8ucRTn5gHhHToXyJYIr8oLcQlGCRkw09O8vIA_9TZHYjjYZ8HF_IJsRZbJEhGmaKsHjgxXSZGciJZPUM3DrHpdrC7rrYiGNp5LFGPLS4MLhEFrrnImXGseo9Chw8Gjc1tkk9Eg0GBcXdh7tUiojsk6tX78',
-    text: "Conquered the Peaks today! ⛰️ Such an amazing group of people from the Saturday Hikers Hub. Can't wait for the next one!",
-    tags: ['#Hiking', '#Outdoors', '#Community'],
-    likes: 124,
-    commentsCount: 18,
-    isLiked: false,
-    isBookmarked: false
+    avatar: 'https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?w=150&auto=format&fit=crop&q=80',
+    author: 'David Atten',
+    authorVerification: 'Trusted Organizer',
+    subtext: 'Completed Event • May 16th, 2026',
+    image: 'https://images.unsplash.com/photo-1466692476868-aef1dfb1e735?w=600&auto=format&fit=crop&q=80',
+    text: "So proud of our volunteering group! We spent 4 hours removing plastic wrappers, micro-plastics, and ghost nets from the northern coastal lines. This outcome-focused action cleared ecosystems for local marine biology. Sincere thanks to everyone who came!",
+    tags: ['#Environment', '#CleanOcean', '#Sustainability'],
+    appreciates: 38,
+    inspirations: 42,
+    participated: 24,
+    commentsCount: 9,
+    isBookmarked: false,
+    type: 'event_recap',
+    eventName: 'Coastal Bay Plastic Cleanup',
+    eventId: 'event-1',
+    hubName: 'Eco-Restoration Coalition',
+    hubId: 'hub-1',
+    hostName: 'David Atten',
+    completionDate: 'May 16th, 2026',
+    participantCount: 42,
+    attendanceRate: 88,
+    volunteerHours: 168,
+    wasteCollectedKg: 310,
+    impactMetrics: {
+      participantsInvolved: 42,
+      volunteerHours: 168,
+      wasteCollectedKg: 310,
+      generalMetric: "310kg waste collected"
+    }
   },
   {
     id: 'post-2',
-    avatar: 'https://lh3.googleusercontent.com/aida-public/AB6AXuDffY8P3e_1Assdzypx5kLcV7xM9sldIogHMsCo11xdXPgDiPRdbjzeOSzF4B81Zg02B-I6X8Du8G5riNnz78gjcQWJVNLu48bfTozIzsOX9FBwunSuHe5T4fTkXAg2dgTqkLtkxE5BeLH0asviGBAnGjPnyW-APQFCeMjMsc5C-H1dv4UlF0jjITPg4d6TQ0_TiLl0-gE9luEQCcOMaoUIfFYG6kE1d6CJg-gxVZyP5-63jywfYtl2QGqzCFL9bwwIdhRE7lOuS8',
-    author: 'Marcus Chen',
-    subtext: '5 hours ago • The Clay Studio',
-    image: 'POTTERY_GRID', // Special tag handled by layout
-    text: 'Finally finished my first set! Big thanks to the instructors at the Wheel Hub for the patience. 🏺',
-    tags: ['#Pottery', '#Creativity'],
-    likes: 86,
-    commentsCount: 12,
-    isLiked: false,
-    isBookmarked: false
+    avatar: 'https://images.unsplash.com/photo-1494790108377-be9c29b29330?w=150&auto=format&fit=crop&q=80',
+    author: 'Sarah Jenkins',
+    authorVerification: 'Trusted Organizer',
+    subtext: 'Hub Milestone • May 20th, 2026',
+    image: 'https://images.unsplash.com/photo-1541614101331-1a5a3a194e92?w=600&auto=format&fit=crop&q=80',
+    text: "Milestone achieved! Our community has officially completed 50 successful group gathers on roads and bike trails, clocking over 2,250 collective kilometers clean of safety incidents! We build true recurring community connections rather than virtual popularity.",
+    tags: ['#Cycling', '#Milestone', '#ActiveTribe'],
+    appreciates: 54,
+    inspirations: 70,
+    participated: 15,
+    commentsCount: 6,
+    isBookmarked: true,
+    type: 'hub_milestone',
+    eventName: '50 Recurring Gathers Milestones',
+    hubName: 'Bangalore Cyclists Hub',
+    hubId: 'hub-2',
+    hostName: 'Sarah Jenkins',
+    completionDate: 'May 20th, 2026',
+    participantCount: 2400,
+    attendanceRate: 92,
+    volunteerHours: 7200,
+    impactMetrics: {
+      participantsInvolved: 2400,
+      volunteerHours: 7200,
+      generalMetric: "50 events completed"
+    }
   },
   {
     id: 'post-3',
-    avatar: 'https://lh3.googleusercontent.com/aida-public/AB6AXuD1bfPerMD_S4fDVajCjk8AfGjrm5KFz-K9iV9B06fP5_0Ika1gxqUrKLfKJb8mR8tViLcq66s6Jsd3p71PebP57xUaIlaThqthHOqYsEcaOGH1f3cuBNrcDMBDwFlDl6BzJm-qmWCiTQFXgMN8fAg_WBAr4Lp3SJUynCDTKQLT0_qpyetBK5k7P5T0kyUzbDhO6rAZGhxc9hiXmQjEbbeTmBpOqqWXhVS7EUZVBulOuMt1wJ3K-q-9Ri1jC7rG-9T_CU7omECnx2U',
+    avatar: 'https://images.unsplash.com/photo-1544256718-3bcf237f3974?w=150&auto=format&fit=crop&q=80',
     author: 'Elena Rossi',
-    subtext: 'Yesterday • City Park',
-    text: '',
-    tags: [],
-    likes: 212,
-    commentsCount: 45,
-    isLiked: false,
+    authorVerification: 'Identity Verified',
+    subtext: 'Public Thank You Note • May 15th, 2026',
+    image: 'https://images.unsplash.com/photo-1503676260728-1c00da094a0b?w=600&auto=format&fit=crop&q=80',
+    text: "A heartfelt thank you to all student tutors who planned math homework sheets and interactive algebra puzzles for youngsters from underprivileged centers last week. Seeing children master new geometry logic was the ultimate outcome!",
+    tags: ['#Education', '#Learning', '#YouthAid'],
+    appreciates: 32,
+    inspirations: 12,
+    participated: 22,
+    commentsCount: 3,
     isBookmarked: false,
-    quote: {
-      text: '"The best way to find yourself is to lose yourself in the service of others." — Finding a lot of truth in this lately with the ToGather volunteer groups.',
-      author: 'Elena Rossi'
+    type: 'thank_you_note',
+    eventName: 'Algebra and Logic Tutoring Drive',
+    eventId: 'event-2',
+    hubName: 'Education Guild',
+    hubId: 'hub-3',
+    hostName: 'Elena Rossi',
+    completionDate: 'May 15th, 2026',
+    participantCount: 10,
+    attendanceRate: 100,
+    volunteerHours: 30,
+    impactMetrics: {
+      participantsInvolved: 10,
+      volunteerHours: 30,
+      generalMetric: "10 children tutored"
+    }
+  },
+  {
+    id: 'post-4',
+    avatar: 'https://images.unsplash.com/photo-1535713875002-d1d0cf377fde?w=150&auto=format&fit=crop&q=80',
+    author: 'Rescue Admin',
+    authorVerification: 'Trusted Organizer',
+    subtext: 'Event Outcome Report • May 16th, 2026',
+    image: 'https://images.unsplash.com/photo-1548199973-03cce0bbc87b?w=600&auto=format&fit=crop&q=80',
+    text: "Our municipal pet welfare day was completely successful! We walked 12 shelter dogs on forest loops. Multiple animal socialization goals completed, and 2 foster matching interviews scheduled successfully! Helping those with no voice.",
+    tags: ['#Pets', '#AnimalWelfare', '#SocialRescue'],
+    appreciates: 44,
+    inspirations: 39,
+    participated: 12,
+    commentsCount: 5,
+    isBookmarked: false,
+    type: 'outcome_report',
+    eventName: 'Shelter Dog Walk Social',
+    eventId: 'event-4',
+    hubName: 'Paws & Whiskers Rescue',
+    hubId: 'hub-5',
+    hostName: 'Paws Rescue Admin',
+    completionDate: 'May 16th, 2026',
+    participantCount: 12,
+    attendanceRate: 100,
+    volunteerHours: 36,
+    impactMetrics: {
+      participantsInvolved: 12,
+      volunteerHours: 36,
+      generalMetric: "12 shelter dogs walked"
     }
   }
 ];
@@ -129,99 +408,197 @@ export const INITIAL_POSTS: FeedPost[] = [
 export const INITIAL_EVENTS: EventEntity[] = [
   {
     id: 'event-1',
-    title: 'City Park Cleanup',
-    category: 'Volunteer',
-    image: 'https://lh3.googleusercontent.com/aida-public/AB6AXuBeqMSBjU8mAV5NW7U_cfGG1AQUjZaaqD-yEBPDHexexRgV-N5PVbb6G8jLS4CJ_Ibg9v7LdT35i5YvjGeSH3Io_eDk-rBD8GCvxMt7GBBPCkMzltYslH-IlkPWw8ZASZ_uYLmchVnUFOQ2QdeBtUB3jWVXi1vRjTwIeTIK2Eck39SJC33A5uedcOc2YoUiSud8TothM-1w34XRx7luviHa0L-NWu5-nG2wmey4Ns1_gdghzWgRHL6kPc3TFHyvxKxSFJA1R97Qc54',
-    date: 'Tomorrow, 9 AM',
-    location: 'Central Park South Entrance',
+    hubId: 'hub-1',
+    title: 'Beach Pollution Cleanup',
+    description: 'Help us clean the northern coastal lines from micro-plastics, abandoned fishing nets, and trash. Bags, gloves, and pickers will be distributed.',
+    category: 'Environment & Sustainability',
+    image: 'https://images.unsplash.com/photo-1618477388954-7852f32655ec?w=600&auto=format&fit=crop&q=80',
+    date: 'Tomorrow, May 24th',
+    time: '9:00 AM - 1:00 PM',
+    location: 'Lifeguard Tower #4, North Beach Lot',
     isFree: true,
+    organizerName: 'David Atten',
+    organizerAvatar: 'https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?w=150&auto=format&fit=crop&q=80',
+    organizerVerification: 'Trusted Organizer',
+    organizerPastEvents: 24,
+    capacity: 50,
+    safetyNotes: 'Wear tough, thick-soled shoes to guard against glass. Stay near designated safety perimeters. Emergency kit on site.',
+    materialsRequired: 'Stops & bags provided.',
+    whatToBring: 'Thick boots, water canteen, hat, sun-block.',
+    accessMode: 'Open',
+    participationLevel: 'Confirmed',
+    attendeesCount: 28,
     attendees: [
-      { avatar: 'https://lh3.googleusercontent.com/aida-public/AB6AXuCHcqkB3Nx9T6yi53sXplv9y1bOzQKulDuBIGr86pe0-SWjXtAmFrpkXcpudbeFsmA7VxP98FrOaX3vlrqVjs_OrcgnRzDpJowVMMgwrSxzkKtIATvtCDFrcX17zLdu0RwlZiBGNVXMoN8Ruhdzd4T-ukmRCLzXAz2tVJJM2XTukLCLa1BxgGfpQruIItFgWaXm7JBVUyXtHlLJTgOQcRNS45dpZaKvzdNpZr9VmvtGuIKH1PwHsZA62duqjsB6NoHh_kMlVK94a8I', name: 'John' },
-      { avatar: 'https://lh3.googleusercontent.com/aida-public/AB6AXuDewz-nkslebqg8xu6GQSQD5eU0ekstdYVOcmpAtTey6dszSya4qwsNNa6a8X-GQ0luEOPRznRNtiJ9Z-cEiSVYCT7zGOu_y6h9vN-DpAMXVlzspk4n_iAyAraYVV1CHoPvNMav8pcZCtneSUSP-D2UB-T16GSGQwh8iLHPgcQ7OrjJ3ycgIHEV166fwAv8V6MsoSrlqiwgiKcVjGdEcp9c8QZ__I7Dor3VwaARQHUrE-B48HeVfSyrk1B2V9TTTKJ5_hodLWuNBDk', name: 'Sarah' }
+      { avatar: 'https://images.unsplash.com/photo-1535713875002-d1d0cf377fde?w=120&auto=format&fit=crop&q=80', name: 'John Doe', participationLevel: 'Confirmed' },
+      { avatar: 'https://images.unsplash.com/photo-1580489944761-15a19d654956?w=120&auto=format&fit=crop&q=80', name: 'Sara Miller', participationLevel: 'Committed' },
+      { avatar: 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=150&auto=format&fit=crop&q=80', name: 'Marcus Chen', participationLevel: 'Confirmed' }
     ],
-    attendeesCount: 12,
-    isAttending: false
+    isAttending: true,
+    announcements: [
+      {
+        id: 'ann-ev-1',
+        senderName: 'David Atten',
+        senderAvatar: 'https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?w=150&auto=format&fit=crop&q=80',
+        senderVerification: 'Trusted Organizer',
+        content: '⚠️ Urgent: High tide predicted at 1 PM. We will finalize pick-up and weigh bags by 12:45 to stay absolutely safe.',
+        timestamp: '1 hour ago',
+        pinned: true
+      }
+    ],
+    discussion: [
+      {
+        id: 'ev-d-1',
+        senderName: 'Sara Miller',
+        senderAvatar: 'https://images.unsplash.com/photo-1580489944761-15a19d654956?w=120&auto=format&fit=crop&q=80',
+        senderVerification: 'Member',
+        content: 'Will we separate plastics and organic driftwoods?',
+        timestamp: '2 hours ago'
+      },
+      {
+        id: 'ev-d-2',
+        senderName: 'David Atten',
+        senderAvatar: 'https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?w=150&auto=format&fit=crop&q=80',
+        senderVerification: 'Trusted Organizer',
+        content: 'Only collect plastics, aluminum cans, glass, and cordages. Wood drift stays as part of natural coastal biology.',
+        timestamp: '1.5 hours ago'
+      }
+    ],
+    photos: [
+      'https://images.unsplash.com/photo-1618477388954-7852f32655ec?w=600&auto=format&fit=crop&q=80'
+    ]
   },
   {
     id: 'event-2',
-    title: 'Cozy Classics Club',
-    category: 'Book Clubs',
-    image: 'https://lh3.googleusercontent.com/aida-public/AB6AXuD7uOPrrEuo4w_3910fHI0JONMeMUizD_7j3inf1cJY5P_qU0kzNpXTGHvX40h2XfAmGuJIBkJ0wvuvJvMmRZyTQEV9xw8bzqgr-u0VIi5Ga8At8vdkwVP8dbMzpn2U3DbEQGKCAe43S9ODZumjqGIJL6fKM2mqOZnfIImxsCOEpdnw4HG1jkmLQn39rVNsL17CvEURZEXXdzaZp0qQrhP15Hp-0aZcRagA3SQHv128jr6maAZUhM2hBU-lk1luYUyi1eg771YLtBI',
-    date: 'Friday, 7 PM',
-    location: 'The Brew & Bindery Cafe',
+    hubId: 'hub-3',
+    title: 'Algebra and Logic Tutoring',
+    description: 'A focused teaching workshop for children from local underprivileged community centers. We will map modules, play interactive math puzzles, and guide homework sheets.',
+    category: 'Education & Learning',
+    image: 'https://images.unsplash.com/photo-1503676260728-1c00da094a0b?w=600&auto=format&fit=crop&q=80',
+    date: 'Saturday, May 30th',
+    time: '2:00 PM - 5:00 PM',
+    location: 'Community Center room 204, Eastside Avenue',
     isFree: true,
+    organizerName: 'Elena Rossi',
+    organizerAvatar: 'https://images.unsplash.com/photo-1544005313-94ddf0286df2?w=150&auto=format&fit=crop&q=80',
+    organizerVerification: 'Identity Verified',
+    organizerPastEvents: 8,
+    capacity: 10,
+    safetyNotes: 'All background checks passed for volunteers. Tutoring conducted in open halls.',
+    materialsRequired: 'Workbooks and stationery kits will be distributed',
+    whatToBring: 'Your laptop, notebooks, positive attitude, patience!',
+    accessMode: 'Approval Required',
+    participationLevel: 'Maybe',
+    attendeesCount: 5,
     attendees: [
-      { avatar: 'https://lh3.googleusercontent.com/aida-public/AB6AXuDffY8P3e_1Assdzypx5kLcV7xM9sldIogHMsCo11xdXPgDiPRdbjzeOSzF4B81Zg02B-I6X8Du8G5riNnz78gjcQWJVNLu48bfTozIzsOX9FBwunSuHe5T4fTkXAg2dgTqkLtkxE5BeLH0asviGBAnGjPnyW-APQFCeMjMsc5C-H1dv4UlF0jjITPg4d6TQ0_TiLl0-gE9luEQCcOMaoUIWfFYG6kE1d6CJg-gxVZyP5-63jywfYtl2QGqzCFL9bwwIdhRE7lOuS8', name: 'Marcus' }
+      { avatar: 'https://images.unsplash.com/photo-1544256718-3bcf237f3974?w=120&auto=format&fit=crop&q=80', name: 'Chris Evans', participationLevel: 'Confirmed' }
     ],
-    attendeesCount: 8,
-    isAttending: false
+    isAttending: false,
+    announcements: [
+      {
+        id: 'ann-ev-2',
+        senderName: 'Elena Rossi',
+        senderAvatar: 'https://images.unsplash.com/photo-1544005313-94ddf0286df2?w=150&auto=format&fit=crop&q=80',
+        senderVerification: 'Identity Verified',
+        content: 'Welcome! First session focuses on linear equations helper sheets. Review algebraic basics before arriving.',
+        timestamp: '12 hours ago'
+      }
+    ],
+    discussion: []
   },
   {
     id: 'event-3',
-    title: 'Morning Puppy Social',
-    category: 'Pet Meets',
-    image: 'https://lh3.googleusercontent.com/aida-public/AB6AXuANk67WXfU-sGLlU2nzuctONupq4owWv9vSLQDMmy6hUfFaA3XXHBtfjbMSom9xpM3xvuLN1oV706GnzPzkbOzKFOuEJ2Xr5S2tx42Ay-b0zm7FoTAKGPgEpVRbnqH93FasaR8Mg9d__hXncKLYcNYGlElxXIWD1pk6Qk043Sr9Vj-C0S9PGtuc7f8H4Uco5S4S4GxCSLMuCzum9hbZ4QZh5s0eWB4ZGZLYhC3TRwy05mXkMOiSxy6kzWp5OdsB5b3l7IaGijGPg9k',
-    date: 'Saturday, 10 AM',
-    location: 'Bark Lane Dog Park',
+    hubId: 'hub-2',
+    title: 'Valley Hill Cycle Ascent',
+    description: 'An endurance cycling run climbing the north summit trail. Not suitable for beginners. Full helmet is mandatory.',
+    category: 'Cycling',
+    image: 'https://images.unsplash.com/photo-1541614101331-1a5a3a194e92?w=600&auto=format&fit=crop&q=80',
+    date: 'Friday, May 29th',
+    time: '6:30 AM - 10:00 AM',
+    location: 'Valley National Park West Gate',
     isFree: true,
+    organizerName: 'Sarah Jenkins',
+    organizerAvatar: 'https://images.unsplash.com/photo-1494790108377-be9c29b29330?w=150&auto=format&fit=crop&q=80',
+    organizerVerification: 'Trusted Organizer',
+    organizerPastEvents: 45,
+    capacity: 25,
+    safetyNotes: 'Extreme descents require proper brakes. Keep 5 meters distance in paceline. Hydrate at checkpoints.',
+    materialsRequired: 'No equipment provided. Must have fully checked geared bicycle.',
+    whatToBring: 'Premium helmet, 2 water canteens, energy gels, spare inner tubes, portable air pump.',
+    accessMode: 'Invite Only',
+    participationLevel: 'Interested',
+    attendeesCount: 15,
     attendees: [
-      { avatar: 'https://lh3.googleusercontent.com/aida-public/AB6AXuD1bfPerMD_S4fDVajCjk8AfGjrm5KFz-K9iV9B06fP5_0Ika1gxqUrKLfKJb8mR8tViLcq66s6Jsd3p71PebP57xUaIlaThqthHOqYsEcaOGH1f3cuBNrcDMBDwFlDl6BzJm-qmWCiTQFXgMN8fAg_WBAr4Lp3SJUynCDTKQLT0_qpyetBK5k7P5T0kyUzbDhO6rAZGhxc9hiXmQjEbbeTmBpOqqWXhVS7EUZVBulOuMt1wJ3K-q-9Ri1jC7rG-9T_CU7omECnx2U', name: 'Elena' }
+      { avatar: 'https://images.unsplash.com/photo-1500648767791-00dcc994a43e?w=120&auto=format&fit=crop&q=80', name: 'Gary B', participationLevel: 'Confirmed' }
     ],
-    attendeesCount: 24,
-    isAttending: false
+    isAttending: false,
+    announcements: []
+  },
+  {
+    id: 'event-4',
+    hubId: 'hub-5',
+    title: 'Shelter Dog Walk Social',
+    description: 'Provide company and exercise to paws waiting for adoption at the municipal pet welfare. Learn animal care and help walk energetic and affectionate dogs.',
+    category: 'Pets & Animal Welfare',
+    image: 'https://images.unsplash.com/photo-1548199973-03cce0bbc87b?w=600&auto=format&fit=crop&q=80',
+    date: 'Completed Event (✓ Event Successfully Conducted)',
+    time: 'Last Saturday, May 16th',
+    location: 'District Canine Welfare Shelter',
+    isFree: true,
+    organizerName: 'Paws Rescue Admin',
+    organizerAvatar: 'https://images.unsplash.com/photo-1535713875002-d1d0cf377fde?w=120&auto=format&fit=crop&q=80',
+    organizerVerification: 'Trusted Organizer',
+    organizerPastEvents: 18,
+    capacity: 20,
+    safetyNotes: 'Always handle leashes with both hands, keep dogs separated by at least 2 meters. Instructors nearby.',
+    materialsRequired: 'Leashes and treats supplied',
+    whatToBring: 'Athletic wear, closed shoes, active energy!',
+    accessMode: 'Open',
+    attendeesCount: 12,
+    attendees: [
+      { avatar: 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=150&auto=format&fit=crop&q=80', name: 'Marcus Chen', participationLevel: 'Committed' }
+    ],
+    isAttending: true,
+    isCompleted: true,
+    isVerifiedConduct: true,
+    impactReport: {
+      volunteerHours: 36,
+      metrics: '12 shelter dogs walked and socialized',
+      summary: 'Volunteers walked 12 rescue dogs on 3km forest trails. 2 dogs were matching for foster interest interviews!'
+    },
+    photos: [
+      'https://images.unsplash.com/photo-1548199973-03cce0bbc87b?w=600&auto=format&fit=crop&q=80'
+    ]
   }
 ];
 
-export const INITIAL_IMPACTS: EventEntity[] = [
-  {
-    id: 'impact-1',
-    title: 'Central Park Restoration',
-    category: 'Volunteer',
-    image: 'https://lh3.googleusercontent.com/aida-public/AB6AXuBeqMSBjU8mAV5NW7U_cfGG1AQUjZaaqD-yEBPDHexexRgV-N5PVbb6G8jLS4CJ_Ibg9v7LdT35i5YvjGeSH3Io_eDk-rBD8GCvxMt7GBBPCkMzltYslH-IlkPWw8ZASZ_uYLmchVnUFOQ2QdeBtUB3jWVXi1vRjTwIeTIK2Eck39SJC33A5uedcOc2YoUiSud8TothM-1w34XRx7luviHa0L-NWu5-nG2wmey4Ns1_gdghzWgRHL6kPc3TFHyvxKxSFJA1R97Qc54',
-    date: '',
-    location: '',
-    isFree: false,
-    attendees: [],
-    attendeesCount: 0,
-    isAttending: false,
-    isImpact: true,
-    impactValue: '150 trees planted'
-  },
-  {
-    id: 'impact-2',
-    title: 'Sunset Charity Run',
-    category: 'Trekking',
-    image: 'https://lh3.googleusercontent.com/aida-public/AB6AXuDUXh1sr0accZwI88RomYh30AZvKt3nMIqAdOzcFi1p-YReVg3HYQISWLXI_DaC3gQruvRhyXkoRpi8qcThGW2fU2i3sPRv2JJd9gEZU_T91yhEi5STb9vGs_sd9IiC14fmqgeM5lTs2OkG1zyUP7S1syook29IQGgrx93e3V3cdw1Hy4KQrC3gnD3lFP0qGNd-pf1su1kAEijpvncecDcv4xRfY1fLZl3RpSgGrZvfj2UvKf3GBmTrS2jGXWYdpJIiJxTQOu9lWyw',
-    date: '',
-    location: '',
-    isFree: false,
-    attendees: [],
-    attendeesCount: 0,
-    isAttending: false,
-    isImpact: true,
-    impactValue: '$2,000 raised'
-  },
-  {
-    id: 'impact-3',
-    title: 'Coastal Cleanup Day',
-    category: 'Volunteer',
-    image: 'https://lh3.googleusercontent.com/aida-public/AB6AXuA24JdbOq_lJu_8kkX842CGebXpjRHbflt07vfDKTsFv5jWp4CE4POjXGThqKKu3kT7gFwEYAU8ribkG5dPnKxxxPnk9qVTbCJO53AHkyBq36PRnEXbHTrlPGFylFNR1eb7TsLkrv2dDFAQqT9M0XgDqM_CXPo6oXcnmxOGJUrs5OyUy2BDqSb-5JLLE_YSdlhaRDTYGhj8ZvTYendTc97pV6jtTLng1roce71vrdPeRqU89Anogw0R5KP9Nh9GDtx_KS3OLMBz72c',
-    date: '',
-    location: '',
-    isFree: false,
-    attendees: [],
-    attendeesCount: 0,
-    isAttending: false,
-    isImpact: true,
-    impactValue: '500kg trash removed'
-  }
-];
+export const INITIAL_IMPACTS: EventEntity[] = INITIAL_EVENTS.filter(e => e.isCompleted || e.isImpact);
 
 export const DEFAULT_PROFILE: UserProfile = {
   name: 'Marcus Chen',
-  avatar: 'https://lh3.googleusercontent.com/aida-public/AB6AXuCHcqkB3Nx9T6yi53sXplv9y1bOzQKulDuBIGr86pe0-SWjXtAmFrpkXcpudbeFsmA7VxP98FrOaX3vlrqVjs_OrcgnRzDpJowVMMgwrSxzkKtIATvtCDFrcX17zLdu0RwlZiBGNVXMoN8Ruhdzd4T-ukmRCLzXAz2tVJJM2XTukLCLa1BxgGfpQruIItFgWaXm7JBVUyXtHlLJTgOQcRNS45dpZaKvzdNpZr9VmvtGuIKH1PwHsZA62duqjsB6NoHh_kMlVK94a8I',
+  avatar: 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=150&auto=format&fit=crop&q=80',
   email: 'reachraghuhere14@gmail.com',
   phone: '+1 (555) 234-5678',
-  bio: 'Artisan, community builder, and hobby chef. Passionate about bringing creative minds together over warm clay, hot coffee, and outdoor trails.',
-  location: 'Downtown Hubs'
+  bio: 'Pristine trail biker, tree planter, and math tutor volunteer. Dedicated to local ecological service and community enrichment.',
+  location: 'Downtown Hubs Area',
+  
+  // Verification labels & reputation
+  verificationStatus: 'Identity Verified',
+  isTrustedOrganizer: false,
+  eventsAttendedCount: 14,
+  eventsHostedCount: 3,
+  attendanceRate: 98,
+  volunteerHours: 48,
+  impactPoints: 320,
+  verifiedEventsConducted: 2,
+  communityContributions: [
+    'Planted 15 saplings at Elmwood Forest Drive',
+    'Tutored elementary arithmetic for room 204 kids',
+    'Conducted trail sweep on Sunday gravel cycles'
+  ],
+  organizerRating: 4.8,
+  earnedBadges: [
+    'Community Builder',
+    'Environmental Contributor',
+    'Education Volunteer'
+  ]
 };
