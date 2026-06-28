@@ -227,21 +227,19 @@ export default function FeedTab({
     setReportedPostId(null);
   };
 
-  // Sort: Prioritize posts with highest volunteer statistics first, focusing on real-world impact.
-  const getImpactRank = (p: FeedPost) => {
-    let score = 0;
-    if (p.volunteerHours) score += p.volunteerHours * 2;
-    if (p.participantCount) score += p.participantCount;
-    if (p.attendanceRate) score += p.attendanceRate;
-    if (p.image) score += 20; // Completed events with visual history are ranked higher
-    return score;
-  };
-
-  const sortedPosts = [...posts].sort((a, b) => getImpactRank(b) - getImpactRank(a));
+  // Sort: Reverse chronological stream. Newer posts are prepended in App.tsx state.
+  const sortedPosts = [...posts];
 
   // Handle selected filters
   const filteredPosts = sortedPosts.filter(post => {
-    const matchesTag = selectedTag === 'All' || post.tags.some(t => t.toLowerCase() === selectedTag.toLowerCase());
+    // If it is a hub update, only show if the user has joined that Hub!
+    if (post.type === 'hub_update') {
+      const associatedHub = hubs.find(h => h.id === post.hubId);
+      if (associatedHub && !associatedHub.isJoined) {
+        return false;
+      }
+    }
+    const matchesTag = selectedTag === 'All' || post.tags.some(t => String(t || '').toLowerCase() === String(selectedTag || '').toLowerCase());
     const matchesType = selectedType === 'All' || post.type === selectedType;
     return matchesTag && matchesType;
   });
@@ -251,6 +249,8 @@ export default function FeedTab({
     switch(type) {
       case 'event_recap':
         return <span className="text-[10px] bg-emerald-100 text-emerald-800 px-2.5 py-0.5 rounded-full font-black uppercase tracking-wider">✓ Event Recap</span>;
+      case 'hub_update':
+        return <span className="text-[10px] bg-indigo-150 text-indigo-900 border border-indigo-200 px-2.5 py-0.5 rounded-full font-black uppercase tracking-wider">📢 Hub Update</span>;
       case 'hub_milestone':
         return <span className="text-[10px] bg-amber-100 text-amber-800 px-2.5 py-0.5 rounded-full font-black uppercase tracking-wider">🏆 Hub Milestone</span>;
       case 'thank_you_note':
@@ -339,8 +339,14 @@ export default function FeedTab({
                 {/* Structured Event/Hub Reference Bar */}
                 <div className="bg-neutral-50/80 p-4 border-b border-outline-variant/15 flex flex-col sm:flex-row sm:items-center justify-between gap-3 select-none">
                   <div>
-                    <h4 className="text-xs font-black text-on-surface uppercase tracking-wide">
-                      {post.eventName || 'Community Gathering'}
+                    <h4 className="text-xs font-black text-on-surface uppercase tracking-wide flex items-center gap-1.5">
+                      {post.type === 'hub_update' ? (
+                        <>
+                          <span className="text-primary font-bold">📢</span> {post.updateType || 'Official Update'}
+                        </>
+                      ) : (
+                        post.eventName || 'Community Gathering'
+                      )}
                     </h4>
                     {post.hubName && (
                       <p className="text-[10px] text-on-surface-variant font-bold mt-0.5 flex items-center gap-1">
@@ -348,7 +354,7 @@ export default function FeedTab({
                       </p>
                     )}
                     <p className="text-[10px] text-outline mt-0.5">
-                      Organized & Certified by: <b>{post.author}</b> {post.authorVerification === 'Trusted Organizer' ? '🛡' : '✓'}
+                      {post.type === 'hub_update' ? 'Published by Hub Admin' : 'Organized & Certified by'}: <b>{post.author}</b> {post.authorVerification === 'Trusted Organizer' ? '🛡' : '✓'}
                     </p>
                   </div>
 
@@ -389,60 +395,62 @@ export default function FeedTab({
                   </div>
                 )}
 
-                {/* Engagement / Outcome Metric Dashboard */}
-                <div className="px-5 pt-4">
-                  <div className="grid grid-cols-3 gap-2 text-center text-on-surface">
-                    <div className="bg-neutral-50 p-2.5 rounded-xl border border-light">
-                      <p className="text-[8px] uppercase text-outline font-black">Participants Involved</p>
-                      <p className="text-xs font-black text-primary mt-0.5">
-                        👥 {post.participantCount || post.impactMetrics?.participantsInvolved || 12}
-                      </p>
-                    </div>
+                {/* Engagement / Outcome Metric Dashboard (Hidden for general Hub Updates) */}
+                {post.type !== 'hub_update' && (
+                  <div className="px-5 pt-4">
+                    <div className="grid grid-cols-3 gap-2 text-center text-on-surface">
+                      <div className="bg-neutral-50 p-2.5 rounded-xl border border-light">
+                        <p className="text-[8px] uppercase text-outline font-black">Participants Involved</p>
+                        <p className="text-xs font-black text-primary mt-0.5">
+                          👥 {post.participantCount || post.impactMetrics?.participantsInvolved || 12}
+                        </p>
+                      </div>
 
-                    <div className="bg-neutral-50 p-2.5 rounded-xl border border-light">
-                      <p className="text-[8px] uppercase text-outline font-black">Attendance Rate</p>
-                      <p className="text-xs font-black text-secondary mt-0.5">
-                        📈 {post.attendanceRate ? `${post.attendanceRate}%` : '100%'}
-                      </p>
-                    </div>
+                      <div className="bg-neutral-50 p-2.5 rounded-xl border border-light">
+                        <p className="text-[8px] uppercase text-outline font-black">Attendance Rate</p>
+                        <p className="text-xs font-black text-secondary mt-0.5">
+                          📈 {post.attendanceRate ? `${post.attendanceRate}%` : '100%'}
+                        </p>
+                      </div>
 
-                    <div className="bg-neutral-50 p-2.5 rounded-xl border border-light">
-                      <p className="text-[8px] uppercase text-outline font-black">Volunteer Hours</p>
-                      <p className="text-xs font-black text-emerald-700 mt-0.5">
-                        ⏱ {post.volunteerHours || post.impactMetrics?.volunteerHours || 24} hrs
-                      </p>
-                    </div>
-                  </div>
-
-                  {/* Quantified Specific Accomplishments Indicators */}
-                  {post.impactMetrics && (post.impactMetrics.treesPlanted || post.impactMetrics.wasteCollectedKg || post.impactMetrics.distanceCoveredKm || post.impactMetrics.fundsRaised) && (
-                    <div className="mt-2.5 p-3 bg-emerald-50/40 border border-emerald-100/50 rounded-xl flex flex-wrap gap-2.5 items-center select-none">
-                      <p className="text-[8.5px] uppercase font-black text-emerald-900 tracking-wider">Outcome Metrics:</p>
-                      <div className="flex flex-wrap gap-1.5 shrink-0">
-                        {post.impactMetrics.treesPlanted && (
-                          <span className="text-[10px] bg-white text-emerald-800 px-2 py-0.5 rounded border border-emerald-100 font-extrabold font-mono">
-                            🌳 {post.impactMetrics.treesPlanted} saplings
-                          </span>
-                        )}
-                        {post.impactMetrics.wasteCollectedKg && (
-                          <span className="text-[10px] bg-white text-emerald-800 px-2 py-0.5 rounded border border-emerald-100 font-extrabold font-mono">
-                            🗑 {post.impactMetrics.wasteCollectedKg}kg trash collected
-                          </span>
-                        )}
-                        {post.impactMetrics.distanceCoveredKm && (
-                          <span className="text-[10px] bg-white text-sky-805 px-2 py-0.5 rounded border border-sky-100 font-extrabold font-mono">
-                            🚴 {post.impactMetrics.distanceCoveredKm}km traversed
-                          </span>
-                        )}
-                        {post.impactMetrics.fundsRaised && (
-                          <span className="text-[10px] bg-white text-amber-805 px-2 py-0.5 rounded border border-amber-100 font-extrabold font-mono">
-                            💰 ${post.impactMetrics.fundsRaised} raised
-                          </span>
-                        )}
+                      <div className="bg-neutral-50 p-2.5 rounded-xl border border-light">
+                        <p className="text-[8px] uppercase text-outline font-black">Volunteer Hours</p>
+                        <p className="text-xs font-black text-emerald-700 mt-0.5">
+                          ⏱ {post.volunteerHours || post.impactMetrics?.volunteerHours || 24} hrs
+                        </p>
                       </div>
                     </div>
-                  )}
-                </div>
+
+                    {/* Quantified Specific Accomplishments Indicators */}
+                    {post.impactMetrics && (post.impactMetrics.treesPlanted || post.impactMetrics.wasteCollectedKg || post.impactMetrics.distanceCoveredKm || post.impactMetrics.fundsRaised) && (
+                      <div className="mt-2.5 p-3 bg-emerald-50/40 border border-emerald-100/50 rounded-xl flex flex-wrap gap-2.5 items-center select-none">
+                        <p className="text-[8.5px] uppercase font-black text-emerald-950 tracking-wider">Outcome Metrics:</p>
+                        <div className="flex flex-wrap gap-1.5 shrink-0">
+                          {post.impactMetrics.treesPlanted && (
+                            <span className="text-[10px] bg-white text-emerald-800 px-2 py-0.5 rounded border border-emerald-100 font-extrabold font-mono">
+                              🌳 {post.impactMetrics.treesPlanted} saplings
+                            </span>
+                          )}
+                          {post.impactMetrics.wasteCollectedKg && (
+                            <span className="text-[10px] bg-white text-emerald-800 px-2 py-0.5 rounded border border-emerald-100 font-extrabold font-mono">
+                              🗑 {post.impactMetrics.wasteCollectedKg}kg trash collected
+                            </span>
+                          )}
+                          {post.impactMetrics.distanceCoveredKm && (
+                            <span className="text-[10px] bg-white text-sky-805 px-2 py-0.5 rounded border border-sky-100 font-extrabold font-mono">
+                              🚴 {post.impactMetrics.distanceCoveredKm}km traversed
+                            </span>
+                          )}
+                          {post.impactMetrics.fundsRaised && (
+                            <span className="text-[10px] bg-white text-amber-805 px-2 py-0.5 rounded border border-amber-100 font-extrabold font-mono">
+                              💰 ${post.impactMetrics.fundsRaised} raised
+                            </span>
+                          )}
+                        </div>
+                      </div>
+                    )}
+                  </div>
+                )}
 
                 {/* Content text */}
                 <div className="px-5 pb-4 pt-3">
@@ -550,7 +558,7 @@ export default function FeedTab({
               onClick={() => setShowCreateModal(false)}
               className="absolute top-4 right-4 text-on-surface hover:bg-surface-container p-1 rounded-full cursor-pointer"
             >
-              <svg className="w-4.5 h-4.5" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth="2" stroke="currentColor">
+              <svg className="w-5 h-5" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth="2" stroke="currentColor">
                 <path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" />
               </svg>
             </button>

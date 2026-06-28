@@ -4,7 +4,7 @@
  */
 
 import React, { useState, useEffect } from 'react';
-import { EventEntity, MessageEntity, AttendanceRecord, AttendanceAuditLog, FeedPost, EventModerator, EventRecap, Hub } from '../types';
+import { EventEntity, MessageEntity, AttendanceRecord, AttendanceAuditLog, FeedPost, EventModerator, EventRecap, Hub, UserProfile } from '../types';
 import { 
   Search, 
   MapPin, 
@@ -32,6 +32,7 @@ import {
   Receipt,
   Heart,
   Sliders,
+  SlidersHorizontal,
   QrCode,
   History,
   Map,
@@ -79,6 +80,7 @@ interface DiscoverTabProps {
   onSearchQueryChange?: (value: string) => void;
   initialEventId?: string;
   onClearInitialEventId?: () => void;
+  profile?: UserProfile;
 }
 
 export default function DiscoverTab({ 
@@ -112,9 +114,11 @@ export default function DiscoverTab({
   searchQuery: externalSearchQuery,
   onSearchQueryChange,
   initialEventId,
-  onClearInitialEventId
+  onClearInitialEventId,
+  profile
 }: DiscoverTabProps) {
   const [localSearchQuery, setLocalSearchQuery] = useState('');
+  const [showSuggestionsCollapse, setShowSuggestionsCollapse] = useState(false);
   const searchQuery = externalSearchQuery !== undefined ? externalSearchQuery : localSearchQuery;
   const setSearchQuery = onSearchQueryChange !== undefined ? onSearchQueryChange : setLocalSearchQuery;
 
@@ -201,6 +205,60 @@ export default function DiscoverTab({
 
   // Advanced Search Modal State
   const [showAdvancedSearch, setShowAdvancedSearch] = useState(false);
+
+  // User controlled discovery Radius State (KM)
+  const [selectedRadius, setSelectedRadius] = useState<number | 'Custom'>(() => {
+    const saved = localStorage.getItem('togather_nearby_radius');
+    if (saved === 'Custom') return 'Custom';
+    return saved ? Number(saved) : 25; // default to 25 km
+  });
+  const [customRadiusValue, setCustomRadiusValue] = useState<number>(() => {
+    const saved = localStorage.getItem('togather_custom_radius_value');
+    return saved ? Number(saved) : 15;
+  });
+  const [isChangingRadius, setIsChangingRadius] = useState<boolean>(false);
+  const [isSearchChangingRadius, setIsSearchChangingRadius] = useState<boolean>(false);
+
+  // Saved/Interested events persistence list
+  const [savedEventIds, setSavedEventIds] = useState<string[]>(() => {
+    const saved = localStorage.getItem('togather_saved_event_ids');
+    return saved ? JSON.parse(saved) : [];
+  });
+
+  const toggleSaveEvent = (eventId: string, e?: React.MouseEvent) => {
+    if (e) e.stopPropagation();
+    setSavedEventIds(prev => {
+      const next = prev.includes(eventId) ? prev.filter(id => id !== eventId) : [...prev, eventId];
+      localStorage.setItem('togather_saved_event_ids', JSON.stringify(next));
+      return next;
+    });
+  };
+
+  React.useEffect(() => {
+    localStorage.setItem('togather_nearby_radius', String(selectedRadius));
+  }, [selectedRadius]);
+
+  React.useEffect(() => {
+    localStorage.setItem('togather_custom_radius_value', String(customRadiusValue));
+  }, [customRadiusValue]);
+
+  // Full Page view modes & filters (within Discover Tab)
+  const [viewingFullSection, setViewingFullSection] = useState<'near' | 'today' | 'weekend' | 'activity' | 'saved' | 'suggested' | 'organizers' | null>(null);
+  const [subPageSearch, setSubPageSearch] = useState('');
+  const [subPageInterest, setSubPageInterest] = useState('All');
+  const [subPageLocation, setSubPageLocation] = useState('All');
+  const [subPageSort, setSubPageSort] = useState<'soonest' | 'closest' | 'attendees' | 'reliability' | 'name'>('soonest');
+
+  React.useEffect(() => {
+    setSubPageSearch('');
+    setSubPageInterest('All');
+    setSubPageLocation('All');
+    if (viewingFullSection === 'organizers') {
+      setSubPageSort('name');
+    } else {
+      setSubPageSort('soonest');
+    }
+  }, [viewingFullSection]);
 
   // Active Filter states (applied)
   const [activeCountry, setActiveCountry] = useState('');
@@ -306,10 +364,23 @@ export default function DiscoverTab({
     onFiltersChange
   ]);
 
+  // Proximity math in KM
+  const getProximityKm = (eventLocation: string) => {
+    const charSum = eventLocation.split('').reduce((sum, ch) => sum + ch.charCodeAt(0), 0);
+    // Standardized mathematical spread between 1.0 km and 59.8 km
+    const kmScale = 1.2 + (charSum % 14) * 4.1;
+    return Number(kmScale.toFixed(1));
+  };
+
+  const getProximityLabel = (eventLocation: string) => {
+    return `${getProximityKm(eventLocation)} km`;
+  };
+
   const matchesDateFilter = (eventDate: string) => {
     if (activeDateMode === 'All') return true;
+    if (!eventDate) return false;
     
-    const dLower = eventDate.toLowerCase();
+    const dLower = String(eventDate).toLowerCase();
     if (activeDateMode === 'Today') {
       return dLower.includes('today') || dLower.includes('tomorrow') || dLower.includes('may 24') || dLower.includes('completed');
     }
@@ -328,7 +399,8 @@ export default function DiscoverTab({
 
   const matchesCategoriesFilter = (category: string) => {
     if (activeCategories.length === 0) return true;
-    return activeCategories.some(cat => category.toLowerCase().includes(cat.toLowerCase()));
+    if (!category) return false;
+    return activeCategories.some(cat => String(category).toLowerCase().includes(String(cat || '').toLowerCase()));
   };
 
   const matchesOrganizerFilter = (organizerVerification: string) => {
@@ -338,57 +410,126 @@ export default function DiscoverTab({
 
   const matchesAccessFilter = (accessMode: string) => {
     if (activeAccessFilter === 'All') return true;
-    return accessMode.toLowerCase() === activeAccessFilter.toLowerCase();
+    if (!accessMode) return false;
+    return String(accessMode).toLowerCase() === String(activeAccessFilter || '').toLowerCase();
   };
 
   // Handle Event Filtering
   const filteredEvents = events.filter(e => {
     if (e.suspended) return false;
 
+    // Proximity range filter
+    const distanceVal = getProximityKm(e.location || '');
+    const activeRadius = selectedRadius === 'Custom' ? customRadiusValue : selectedRadius;
+    const matchesRadius = distanceVal <= activeRadius;
+
     // Search matches Title, Location, Organizer Name, Category, hashtags
-    const matchesSearch = e.title.toLowerCase().includes(searchQuery.toLowerCase()) || 
-                          e.location.toLowerCase().includes(searchQuery.toLowerCase()) ||
-                          e.category.toLowerCase().includes(searchQuery.toLowerCase()) ||
-                          e.organizerName.toLowerCase().includes(searchQuery.toLowerCase());
+    const q = String(searchQuery || '').toLowerCase();
+    const title = String(e.title || '').toLowerCase();
+    const loc = String(e.location || '').toLowerCase();
+    const cat = String(e.category || '').toLowerCase();
+    const org = String(e.organizerName || '').toLowerCase();
+    const matchesSearch = title.includes(q) || 
+                          loc.includes(q) ||
+                          cat.includes(q) ||
+                          org.includes(q);
     
     // Country, State, City matches event location string
-    const locLower = e.location.toLowerCase();
-    const matchesCountry = !activeCountry || locLower.includes(activeCountry.toLowerCase());
-    const matchesState = !activeState || locLower.includes(activeState.toLowerCase());
-    const matchesCity = !activeCity || locLower.includes(activeCity.toLowerCase());
+    const locLower = String(e.location || '').toLowerCase();
+    const matchesCountry = !activeCountry || locLower.includes(String(activeCountry || '').toLowerCase());
+    const matchesState = !activeState || locLower.includes(String(activeState || '').toLowerCase());
+    const matchesCity = !activeCity || locLower.includes(String(activeCity || '').toLowerCase());
     
     // Date filter matches
-    const matchesDate = matchesDateFilter(e.date);
+    const matchesDate = matchesDateFilter(e.date || '');
     
     // Categories matches
-    const matchesCategory = matchesCategoriesFilter(e.category);
+    const matchesCategory = matchesCategoriesFilter(e.category || '');
     
     // Organizer matches
-    const matchesOrganizer = matchesOrganizerFilter(e.organizerVerification);
+    const matchesOrganizer = matchesOrganizerFilter(e.organizerVerification || '');
     
     // Access matches
-    const matchesAccess = matchesAccessFilter(e.accessMode);
+    const matchesAccess = matchesAccessFilter(e.accessMode || '');
 
-    return matchesSearch && matchesCountry && matchesState && matchesCity && matchesCategory && matchesDate && matchesOrganizer && matchesAccess;
+    return matchesRadius && matchesSearch && matchesCountry && matchesState && matchesCity && matchesCategory && matchesDate && matchesOrganizer && matchesAccess;
   });
 
-  // Events Near You dynamic logic
-  const userLocLower = (profileLocation || 'Downtown Hubs Area').toLowerCase();
+  // Events Near You dynamic logic filtered by selectedRadius preference
   const nearEvents = events.filter(e => {
-    if (e.suspended) return false;
-    const hasLocationOverlap = e.location.toLowerCase().split(/[\s,]+/ ).some(word => 
-      word.length > 3 && userLocLower.includes(word)
-    );
-    const isNearbyCategory = e.category === 'Environment' || e.category === 'Volunteering';
-    const isDefaultNearby = e.location.toLowerCase().includes('central park') || e.location.toLowerCase().includes('eastside') || e.location.toLowerCase().includes('downtown') || e.location.toLowerCase().includes('beach');
-    return hasLocationOverlap || isNearbyCategory || isDefaultNearby;
+    if (e.suspended || e.isCompleted) return false;
+    const distanceVal = getProximityKm(e.location);
+    const activeRadius = selectedRadius === 'Custom' ? customRadiusValue : selectedRadius;
+    return distanceVal <= activeRadius;
   });
 
-  const getProximityLabel = (eventLocation: string) => {
-    const charSum = eventLocation.split('').reduce((sum, ch) => sum + ch.charCodeAt(0), 0);
-    const distanceScale = 0.3 + (charSum % 15) * 0.2;
-    return `${distanceScale.toFixed(1)} mi`;
+  // Suggested For You Scoring Engine
+  const getSuggestionScore = (evt: EventEntity) => {
+    if (evt.suspended || evt.isCompleted) return 0;
+    
+    let score = 0;
+    
+    // 1. Tag matching: Primary interest matches user's selected interests
+    if (profile?.interests && profile.interests.length > 0) {
+      if (evt.primaryInterest && profile.interests.includes(evt.primaryInterest)) {
+        score += 50; // High score for primary interest tag match
+      }
+      if (evt.secondaryInterest && profile.interests.includes(evt.secondaryInterest)) {
+        score += 25; // Medium score for secondary interest tag match
+      }
+      if (evt.thirdInterest && profile.interests.includes(evt.thirdInterest)) {
+        score += 15; // Low score for third interest tag match
+      }
+    }
+
+    // 2. Causes matching: Event category matches a cause the user cares about
+    if (profile?.causes && profile.causes.length > 0 && evt.category) {
+      const causeMatches = profile.causes.some(cause => {
+        if (!cause) return false;
+        const causeStr = String(cause).toLowerCase();
+        return String(evt.category || '').toLowerCase().includes(causeStr) || 
+               String(evt.title || '').toLowerCase().includes(causeStr);
+      });
+      if (causeMatches) {
+        score += 30;
+      }
+    }
+
+    // 3. Proximity bonus within discovery radius limit
+    const distanceVal = getProximityKm(evt.location || '');
+    const activeRadius = selectedRadius === 'Custom' ? customRadiusValue : (selectedRadius || 25);
+    if (distanceVal <= Number(activeRadius)) {
+      score += 20;
+      if (distanceVal < 10) {
+        score += 15; // ultra local bonus
+      }
+    } else {
+      score -= 25; // penalize outside discovery radius
+    }
+
+    // 4. Joined Hub matching:
+    const userIsMemberOfHub = hubs && hubs.some(hub => hub && hub.isJoined && (
+      String(evt.location || '').toLowerCase().includes(String(hub.name || '').toLowerCase()) ||
+      String(evt.organizerName || '').toLowerCase() === String(hub.name || '').toLowerCase()
+    ));
+    if (userIsMemberOfHub) {
+      score += 25;
+    }
+
+    // 5. RSVP / interaction status:
+    if (evt.isAttending || savedEventIds.includes(evt.id)) {
+      score += 40;
+    }
+
+    return score;
   };
+
+  const suggestedEvents = events
+    .filter(e => !e.suspended && !e.isCompleted)
+    .map(e => ({ event: e, score: getSuggestionScore(e) }))
+    .filter(item => item.score > 20)
+    .sort((a, b) => b.score - a.score)
+    .slice(0, 3);
 
   const getChatAccessStatus = (evt: EventEntity, name: string) => {
     if (evt.organizerName === name) return { hasAccess: true, reason: 'Organizer' };
@@ -768,39 +909,628 @@ export default function DiscoverTab({
     }
   };
 
+  const renderEventCard = (evt: EventEntity, sourceSection?: string, isHorizontal = false) => {
+    const isSaved = savedEventIds.includes(evt.id);
+    const reliabilityRate = 89 + (evt.organizerPastEvents % 3) * 4; // realistic attendance reliability (e.g. 89%, 93%, 97%)
+    const distanceStr = getProximityLabel(evt.location);
+
+    return (
+      <div 
+        key={evt.id}
+        onClick={() => {
+          setSelectedEvent(evt);
+          setActiveExpTab('overview');
+        }}
+        className={isHorizontal 
+          ? "w-[220px] sm:w-[240px] shrink-0 snap-start bg-white rounded-2xl border border-outline-variant/10 overflow-hidden hover:shadow-sm transition-all duration-200 cursor-pointer flex flex-col shadow-3xs group relative animate-in fade-in duration-200"
+          : "w-full bg-white rounded-2xl border border-outline-variant/10 overflow-hidden hover:shadow-sm transition-all duration-200 cursor-pointer flex flex-col md:flex-row shadow-3xs group relative animate-in fade-in duration-200"
+        }
+      >
+        {/* Event Image */}
+        <div className={isHorizontal 
+          ? "h-28 w-full overflow-hidden relative bg-neutral-100 shrink-0" 
+          : "h-32 md:h-auto md:w-36 overflow-hidden relative bg-neutral-100 shrink-0"
+        }>
+          <img 
+            referrerPolicy="no-referrer"
+            src={evt.image || undefined} 
+            alt={evt.title} 
+            className="w-full h-full object-cover group-hover:scale-[1.02] transition-transform duration-250" 
+          />
+          <div className="absolute top-2 left-2 bg-black/70 backdrop-blur-xs text-white px-2 py-0.5 rounded-md text-[7.5px] font-bold font-mono">
+            {distanceStr}
+          </div>
+          <div className="absolute bottom-2 left-2">
+            <span className="bg-primary text-white px-1.5 py-0.5 rounded-md text-[7px] font-black uppercase tracking-wider">
+              {evt.category}
+            </span>
+          </div>
+
+          {/* Bookmark/Save action */}
+          <button
+            onClick={(e) => {
+              e.stopPropagation();
+              toggleSaveEvent(evt.id);
+            }}
+            className="absolute top-2 right-2 p-1 bg-black/40 hover:bg-black/60 text-white rounded-full transition-colors active:scale-95 z-10 animate-none"
+            title={isSaved ? "Remove from Saved" : "Save Opportunity"}
+          >
+            <Heart className={`w-3 h-3 ${isSaved ? 'fill-secondary text-secondary' : 'text-neutral-200'}`} />
+          </button>
+        </div>
+
+        {/* Card Details */}
+        <div className="p-3 flex-grow flex flex-col justify-between">
+          <div>
+            <div className="flex justify-between items-start mb-0.5 text-[8.5px] font-bold text-outline uppercase select-none">
+              <span className="text-secondary tracking-wide">{evt.category}</span>
+              <span className="text-on-surface bg-neutral-100 px-1 rounded-sm">{evt.date}</span>
+            </div>
+
+            <h4 className="font-extrabold text-[11.5px] sm:text-xs text-on-surface group-hover:text-primary transition-colors leading-tight mb-0.5 truncate">
+              {evt.title}
+            </h4>
+            <p className="text-outline text-[10px] line-clamp-1 mb-1.5">
+              {evt.description || 'Join local community forces around this safe volunteer gathering.'}
+            </p>
+
+            {/* Interest alignment tags display */}
+            {(evt.primaryInterest || evt.secondaryInterest) && (
+              <div className="flex flex-wrap gap-1 mb-2 select-none text-[8px] font-bold">
+                {evt.primaryInterest && (
+                  <span className={`px-1.5 py-0.5 rounded border flex items-center gap-0.5 transition-colors ${profile?.interests?.includes(evt.primaryInterest) ? 'bg-primary/10 text-primary border-primary/20' : 'bg-neutral-50 border-outline-variant/10 text-outline'}`}>
+                    🎯 {evt.primaryInterest}
+                  </span>
+                )}
+                {evt.secondaryInterest && (
+                  <span className={`px-1.5 py-0.5 rounded border flex items-center gap-0.5 transition-colors ${profile?.interests?.includes(evt.secondaryInterest) ? 'bg-secondary/5 text-on-secondary-container border-secondary/10' : 'bg-neutral-50 border-outline-variant/10 text-outline'}`}>
+                    {evt.secondaryInterest}
+                  </span>
+                )}
+              </div>
+            )}
+          </div>
+
+          {/* Organizer & Attendance Reliability */}
+          <div className="flex items-center justify-between text-[9px] text-outline/80 py-1 border-t border-b border-outline-variant/10 my-1 select-none">
+            <div className="flex items-center gap-1.5 min-w-0">
+              <div className="relative w-5 h-5 rounded-full border border-outline-variant/15 bg-primary/10 text-primary font-black text-[9px] flex items-center justify-center shrink-0 overflow-hidden">
+                {evt.organizerAvatar ? (
+                  <img 
+                    referrerPolicy="no-referrer"
+                    src={evt.organizerAvatar} 
+                    alt={evt.organizerName} 
+                    className="absolute inset-0 w-full h-full object-cover" 
+                    onError={(e) => { 
+                      e.currentTarget.style.display = 'none'; 
+                    }}
+                  />
+                ) : null}
+                <span>{String(evt.organizerName || 'U').charAt(0).toUpperCase()}</span>
+              </div>
+              <span className="truncate font-bold text-on-surface flex items-center gap-0.5">
+                {evt.organizerName}
+                {evt.organizerVerification === 'Trusted Organizer' && <span className="text-primary text-[8px]" title="Trusted Organizer">🛡️</span>}
+              </span>
+            </div>
+            <span className="text-emerald-700 bg-emerald-50/70 px-1 py-0.2 rounded font-extrabold shrink-0">
+              ★ {reliabilityRate}%
+            </span>
+          </div>
+
+          {/* Card footer metrics */}
+          <div className="flex justify-between items-center text-[9px] pt-1">
+            <span className="text-outline font-semibold font-sans">
+              👥 {evt.attendeesCount} joined
+            </span>
+            <div className="flex items-center gap-1 font-extrabold text-primary text-[10.5px]">
+              {evt.isAttending && (
+                <span className="text-[7.5px] bg-primary/10 border border-primary/20 text-primary px-1.5 py-0.5 rounded-full font-black uppercase tracking-wider">
+                  Going
+                </span>
+              )}
+              <span className="group-hover:translate-x-0.5 transition-transform flex items-center">
+                Join <ChevronRight className="w-3 h-3" />
+              </span>
+            </div>
+          </div>
+
+        </div>
+      </div>
+    );
+  };
+
+  const uniqueInterestsList = ['Volunteering', 'Environment', 'Education', 'Cycling', 'Yoga & Meditation', 'Reading', 'Photography', 'Technology', 'Pets & Wildlife', 'Wellness', 'Social Causes'];
+
+  const getSubPageEvents = () => {
+    let list: EventEntity[] = [];
+    if (viewingFullSection === 'near') {
+      list = [...nearEvents];
+    } else if (viewingFullSection === 'today') {
+      list = events.filter(e => !e.suspended && !e.isCompleted && String(e.date || '').toLowerCase().includes('today'));
+    } else if (viewingFullSection === 'weekend') {
+      list = events.filter(e => !e.suspended && !e.isCompleted && (
+        String(e.date || '').toLowerCase().includes('weekend') || 
+        String(e.date || '').toLowerCase().includes('saturday') || 
+        String(e.date || '').toLowerCase().includes('sunday')
+      ));
+    } else if (viewingFullSection === 'activity') {
+      list = events.filter(e => !e.suspended && e.isAttending);
+    } else if (viewingFullSection === 'saved') {
+      list = events.filter(e => !e.suspended && (savedEventIds.includes(e.id) || e.participationLevel === 'Interested' || e.participationLevel === 'Maybe'));
+    } else if (viewingFullSection === 'suggested') {
+      list = suggestedEvents.map(item => item.event);
+    }
+
+    return list.filter(e => {
+      // 1. Search Query
+      if (subPageSearch.trim()) {
+        const q = subPageSearch.toLowerCase();
+        const matches = String(e.title || '').toLowerCase().includes(q) ||
+                        String(e.description || '').toLowerCase().includes(q) ||
+                        String(e.organizerName || '').toLowerCase().includes(q) ||
+                        String(e.location || '').toLowerCase().includes(q);
+        if (!matches) return false;
+      }
+
+      // 2. Interest
+      if (subPageInterest !== 'All') {
+        const isCatMatch = String(e.category || '').toLowerCase().includes(subPageInterest.toLowerCase()) ||
+                            String(e.primaryInterest || '').toLowerCase() === subPageInterest.toLowerCase() ||
+                            String(e.secondaryInterest || '').toLowerCase() === subPageInterest.toLowerCase();
+        if (!isCatMatch) return false;
+      }
+
+      // 3. Location Filter
+      if (subPageLocation !== 'All') {
+        const isLocMatch = String(e.location || '').toLowerCase().includes(subPageLocation.toLowerCase());
+        if (!isLocMatch) return false;
+      }
+
+      return true;
+    }).sort((a, b) => {
+      if (subPageSort === 'soonest') {
+        return String(a.date).localeCompare(String(b.date));
+      }
+      if (subPageSort === 'closest') {
+        return getProximityKm(a.location) - getProximityKm(b.location);
+      }
+      if (subPageSort === 'attendees') {
+        return (b.attendeesCount || 0) - (a.attendeesCount || 0);
+      }
+      if (subPageSort === 'reliability') {
+        const reliabilityA = 89 + (a.organizerPastEvents % 3) * 4;
+        const reliabilityB = 89 + (b.organizerPastEvents % 3) * 4;
+        return reliabilityB - reliabilityA;
+      }
+      if (subPageSort === 'name') {
+        return String(a.title).localeCompare(String(b.title));
+      }
+      return 0;
+    });
+  };
+
+  const getSubPageOrganizers = () => {
+    const list = [
+      {
+        name: 'David Atten',
+        avatar: 'https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?w=150&auto=format&fit=crop&q=80',
+        rank: 'Coastal Bay Sector Lead',
+        conducted: 24,
+        reliability: 97,
+        bio: 'Passionate marine ecology, biodiversity, and coastal cleanups. Spearheading shoreline garbage monitoring and micro-plastic extraction programs in Region 4.',
+        specialty: 'Environment'
+      },
+      {
+        name: 'Elena Rossi',
+        avatar: 'https://images.unsplash.com/photo-1544005313-94ddf0286df2?w=150&auto=format&fit=crop&q=80',
+        rank: 'Youth Literacy Moderator',
+        conducted: 8,
+        reliability: 96,
+        bio: 'Educational coordinator. Oversees smart tutoring hubs, homework workshops, and primary curriculum supplements for neighborhood children.',
+        specialty: 'Education'
+      },
+      {
+        name: 'Sarah Jenkins',
+        avatar: 'https://images.unsplash.com/photo-1494790108377-be9c29b29330?w=150&auto=format&fit=crop&q=80',
+        rank: 'Municipal Cycle Host',
+        conducted: 45,
+        reliability: 98,
+        bio: 'Community cyclist and endurance racer. Leads safe paced pacing groups, mountain bike path restorations, and urban bike safety courses.',
+        specialty: 'Cycling'
+      }
+    ];
+
+    return list.filter(org => {
+      if (subPageSearch.trim()) {
+        const q = subPageSearch.toLowerCase();
+        if (!org.name.toLowerCase().includes(q) && !org.rank.toLowerCase().includes(q) && !org.bio.toLowerCase().includes(q)) {
+          return false;
+        }
+      }
+      if (subPageInterest !== 'All' && org.specialty !== subPageInterest) {
+        return false;
+      }
+      return true;
+    }).sort((a, b) => {
+      if (subPageSort === 'name') {
+        return a.name.localeCompare(b.name);
+      }
+      if (subPageSort === 'reliability') {
+        return b.reliability - a.reliability;
+      }
+      if (subPageSort === 'attendees') {
+        return b.conducted - a.conducted;
+      }
+      return 0;
+    });
+  };
+
+  const renderSectionScroll = (
+    items: any[], 
+    renderItem: (item: any) => React.ReactNode, 
+    onViewMore: () => void, 
+    emptyPlaceholder: React.ReactNode
+  ) => {
+    if (items.length === 0) {
+      return emptyPlaceholder;
+    }
+
+    return (
+      <div className="relative w-full">
+        <div className="flex overflow-x-auto hide-scrollbar snap-x snap-mandatory gap-3 pb-3 px-1 w-full">
+          {items.map((item) => renderItem(item))}
+          
+          {/* VIEW MORE CARD at the end */}
+          <div 
+            onClick={onViewMore}
+            className="w-[140px] sm:w-[160px] shrink-0 snap-end flex flex-col items-center justify-center bg-zinc-50/75 hover:bg-zinc-100/80 border border-dashed border-outline-variant/30 rounded-2xl cursor-pointer p-3 text-center hover:border-primary/40 transition-all select-none group min-h-[210px]"
+          >
+            <div className="w-8 h-8 rounded-full bg-primary/10 flex items-center justify-center text-primary mb-2 group-hover:scale-105 transition-transform">
+              <ChevronRight className="w-4 h-4" />
+            </div>
+            <p className="text-[9.5px] font-extrabold text-[#2c3e50] uppercase tracking-wider">View All</p>
+            <p className="text-[8.5px] text-outline mt-1 font-semibold leading-tight select-none">Explore details & filters</p>
+          </div>
+        </div>
+      </div>
+    );
+  };
+
+  const renderFullSectionView = () => {
+    const isOrganizers = viewingFullSection === 'organizers';
+    const title = {
+      near: '1. Events Near You',
+      today: "2. Happening Today",
+      weekend: '3. This Weekend',
+      activity: '4. Your Activity',
+      saved: '5. Saved & Interested Gathers',
+      suggested: 'Suggested For You',
+      organizers: '7. Trusted Organizers'
+    }[viewingFullSection || 'near'] || 'Browse Opportunities';
+
+    const eventItems = isOrganizers ? [] : getSubPageEvents();
+    const organizerItems = isOrganizers ? getSubPageOrganizers() : [];
+    const totalMatches = isOrganizers ? organizerItems.length : eventItems.length;
+
+    const uniqueLocations = Array.from(new Set(events.map(e => {
+      const parts = e.location.split(',');
+      return parts[parts.length - 1]?.trim() || e.location;
+    }))).filter(Boolean);
+
+    return (
+      <div className="bg-white rounded-[2rem] border border-outline-variant/15 p-6 shadow-sm min-h-[600px] animate-in fade-in duration-200 text-left">
+        <div className="flex items-center justify-between border-b border-outline-variant/10 pb-4 mb-5">
+          <button 
+            type="button"
+            onClick={() => setViewingFullSection(null)}
+            className="flex items-center gap-1.5 text-xs font-black uppercase text-outline hover:text-primary transition-all cursor-pointer group"
+          >
+            <ArrowLeft className="w-4 h-4 transition-transform group-hover:-translate-x-1" />
+            <span>Back to Discover</span>
+          </button>
+          
+          <span className="text-[10px] font-extrabold uppercase bg-neutral-100 text-outline px-2.5 py-1 rounded-full border">
+            {totalMatches} Matches Found
+          </span>
+        </div>
+
+        <div className="mb-6">
+          <h1 className="text-xl font-black text-[#2c3e50] tracking-tight">{title}</h1>
+          <p className="text-[11px] text-outline mt-1 font-semibold">Explore, sort, or filter through coordinate logs dynamically.</p>
+        </div>
+
+        <div className="bg-neutral-50/75 border border-outline-variant/15 rounded-2xl p-4 mb-6 space-y-3.5 select-none">
+          <div className="flex flex-col md:flex-row gap-3">
+            <div className="flex-grow relative">
+              <Search className="absolute left-3.5 top-1/2 -translate-y-1/2 w-4 h-4 text-outline" />
+              <input
+                type="text"
+                placeholder={isOrganizers ? "Search organizer name or rank..." : "Search title, location, description..."}
+                value={subPageSearch}
+                onChange={(e) => setSubPageSearch(e.target.value)}
+                className="w-full bg-white border border-outline-variant/25 rounded-xl pl-10 pr-4 py-2 text-xs focus:outline-none focus:ring-1 focus:ring-primary text-on-surface"
+              />
+            </div>
+
+            <div className="flex flex-col sm:flex-row gap-3">
+              <div className="flex items-center gap-1">
+                <span className="text-[10px] uppercase font-bold text-outline shrink-0">Topic:</span>
+                <select
+                  value={subPageInterest}
+                  onChange={(e) => setSubPageInterest(e.target.value)}
+                  className="bg-white border border-outline-variant/25 rounded-xl text-xs px-2.5 py-1.5 font-bold focus:outline-none focus:ring-1 focus:ring-primary max-w-[150px] cursor-pointer text-on-surface"
+                >
+                  <option value="All">All Topics</option>
+                  {isOrganizers ? (
+                    <>
+                      <option value="Environment">Environment</option>
+                      <option value="Education">Education</option>
+                      <option value="Cycling">Cycling</option>
+                    </>
+                  ) : (
+                    uniqueInterestsList.map(int => (
+                      <option key={int} value={int}>{int}</option>
+                    ))
+                  )}
+                </select>
+              </div>
+
+              {!isOrganizers && (
+                <div className="flex items-center gap-1">
+                  <span className="text-[10px] uppercase font-bold text-outline shrink-0">City:</span>
+                  <select
+                    value={subPageLocation}
+                    onChange={(e) => setSubPageLocation(e.target.value)}
+                    className="bg-white border border-outline-variant/25 rounded-xl text-xs px-2.5 py-1.5 font-bold focus:outline-none focus:ring-1 focus:ring-primary max-w-[180px] cursor-pointer text-on-surface"
+                  >
+                    <option value="All">All Cities</option>
+                    {uniqueLocations.map(loc => (
+                      <option key={loc} value={loc}>{loc}</option>
+                    ))}
+                  </select>
+                </div>
+              )}
+
+              <div className="flex items-center gap-1">
+                <span className="text-[10px] uppercase font-bold text-outline shrink-0">Sort:</span>
+                <select
+                  value={subPageSort}
+                  onChange={(e) => setSubPageSort(e.target.value as any)}
+                  className="bg-white border border-outline-variant/25 rounded-xl text-xs px-2.5 py-1.5 font-bold focus:outline-none focus:ring-1 focus:ring-primary cursor-pointer text-on-surface"
+                >
+                  {isOrganizers ? (
+                    <>
+                      <option value="name">Name (Alphabetical)</option>
+                      <option value="reliability">Avg Attendance</option>
+                      <option value="attendees">Events Conducted</option>
+                    </>
+                  ) : (
+                    <>
+                      <option value="soonest">Timeline (Soonest)</option>
+                      <option value="closest">Distance (Closest)</option>
+                      <option value="attendees">Popularity (Most Registered)</option>
+                      <option value="reliability">Attendance Reliability</option>
+                      <option value="name">Title (Alphabetical)</option>
+                    </>
+                  )}
+                </select>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <div>
+          {isOrganizers ? (
+            organizerItems.length === 0 ? (
+              <div className="p-8 text-center bg-neutral-50 rounded-2xl border border-dashed text-outline select-none py-12">
+                <p className="text-xs font-semibold">No organizers found matching those filters.</p>
+                <p className="text-[10px] mt-1 text-outline-variant">Try refining your filter preferences.</p>
+              </div>
+            ) : (
+              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-5">
+                {organizerItems.map((org, idx) => (
+                  <div 
+                    key={idx}
+                    className="bg-white border border-outline-variant/15 hover:shadow-md rounded-2xl p-4 flex flex-col justify-between text-left transition-all"
+                  >
+                    <div>
+                      <div className="flex items-center gap-2.5 mb-2">
+                        <img src={org.avatar} alt={org.name} className="w-10 h-10 rounded-full object-cover shrink-0 border" />
+                        <div className="min-w-0">
+                          <h4 className="font-extrabold text-xs text-on-surface truncate flex items-center gap-1">
+                            {org.name} <span className="text-primary">🛡️</span>
+                          </h4>
+                          <p className="text-[9px] text-outline truncate">{org.rank}</p>
+                        </div>
+                      </div>
+                      <p className="text-[9.5px] text-outline line-clamp-3 leading-normal mb-3">{org.bio}</p>
+                    </div>
+
+                    <div className="border-t border-outline-variant/10 pt-2.5">
+                      <div className="flex justify-between items-center text-[9px] text-outline font-bold mb-1.5">
+                        <span>Events Conducted:</span>
+                        <span className="text-on-surface font-extrabold">{org.conducted}</span>
+                      </div>
+                      <div className="flex justify-between items-center text-[9px] text-outline font-bold">
+                        <span>Avg Attendance:</span>
+                        <span className="text-emerald-700 bg-emerald-50 px-1 py-0.5 rounded font-black">{org.reliability}%</span>
+                      </div>
+                      <button
+                        type="button"
+                        onClick={() => setSelectedProfileUser({
+                          name: org.name,
+                          avatar: org.avatar,
+                          verificationStatus: 'Trusted Organizer',
+                          bio: org.bio,
+                          location: 'Downtown Hubs Area'
+                        })}
+                        className="w-full mt-3.5 py-1.5 bg-neutral-50 hover:bg-neutral-100 border text-[9.5px] font-black uppercase text-outline rounded-lg active:scale-95 transition-all text-center select-none cursor-pointer"
+                      >
+                        View Shield Profile
+                      </button>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )
+          ) : (
+            eventItems.length === 0 ? (
+              <div className="p-8 text-center bg-neutral-50 rounded-2xl border border-dashed text-outline select-none py-12">
+                <p className="text-xs font-semibold">No local gatherings align with your filter selections.</p>
+                <p className="text-[10px] mt-1 text-outline-variant">Adjust your topics or keywords check to explore broader options.</p>
+              </div>
+            ) : (
+              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-5">
+                {eventItems.map((evt) => (
+                  <div key={evt.id} className="flex">
+                    {renderEventCard(evt, 'fullscreen-grid', false)}
+                  </div>
+                ))}
+              </div>
+            )
+          )}
+        </div>
+      </div>
+    );
+  };
+
   return (
     <div className="pb-16 text-left">
       {isSearchOverlayOpen ? (
-        <div id="dedicated-search-overlay" className="space-y-4 animate-in duration-155 fade-in slide-in-from-bottom-2 text-left">
+        <div id="dedicated-search-overlay" className="space-y-3 animate-in duration-155 fade-in slide-in-from-bottom-2 text-left">
           
-          {/* Collapsible Filters control */}
-          <div className="flex flex-col gap-2">
-            <div className="flex justify-between items-center select-none pb-1 border-b border-outline-variant/10">
+          {/* Integrated Proximity & Advanced Filters Bar */}
+          <div className="bg-white rounded-2xl p-3 border border-outline-variant/15 shadow-3xs flex flex-wrap items-center justify-between gap-2 select-none">
+            {/* Left side: Range information indicator */}
+            <div className="flex items-center gap-2">
+              <div className="w-8 h-8 rounded-full bg-secondary/10 flex items-center justify-center shrink-0">
+                <MapPin className="w-4 h-4 text-secondary animate-bounce" />
+              </div>
+              <div className="flex flex-col">
+                <span className="text-[9.5px] font-extrabold uppercase text-secondary tracking-widest">PROXIMITY</span>
+                <span className="text-xs font-black text-on-surface-variant">
+                  {selectedRadius === 'Custom' ? `${customRadiusValue} km (Custom)` : `${selectedRadius} km`}
+                </span>
+              </div>
+            </div>
+
+            {/* Right side: Compact interactive buttons */}
+            <div className="flex items-center gap-1.5 ml-auto">
+              {/* Adjust Radius Button */}
               <button
                 type="button"
-                onClick={() => setShowAdvancedSearch(!showAdvancedSearch)}
-                className="flex items-center gap-1.5 text-on-surface hover:text-primary font-bold text-xs cursor-pointer py-1"
+                onClick={() => {
+                  setIsSearchChangingRadius(!isSearchChangingRadius);
+                  setShowAdvancedSearch(false); // keep it solitary & clean
+                }}
+                className={`px-3 py-1.5 rounded-xl border text-[10px] font-black uppercase tracking-wider flex items-center gap-1.5 cursor-pointer active:scale-95 transition-all ${
+                  isSearchChangingRadius 
+                    ? 'bg-[#2c3e50] border-[#2c3e50] text-white font-extrabold' 
+                    : 'bg-neutral-50 hover:bg-neutral-100 border-outline-variant/20 text-outline font-black'
+                }`}
               >
-                <span>Filters</span>
-                <span className="text-[10px] text-outline">{showAdvancedSearch ? '▲' : '▼'}</span>
-                {hasAnyActiveFilter() && (
-                  <span className="w-1.5 h-1.5 bg-secondary rounded-full animate-pulse ml-1" />
-                )}
+                <Sliders className="w-3.5 h-3.5" />
+                <span>{isSearchChangingRadius ? 'CLOSE' : 'ADJUST RADIUS'}</span>
               </button>
-              
-              {hasAnyActiveFilter() && (
+
+              {/* Filters Button */}
+              <button
+                type="button"
+                onClick={() => {
+                  setShowAdvancedSearch(!showAdvancedSearch);
+                  setIsSearchChangingRadius(false); // keep it solitary & clean
+                }}
+                className={`px-3 py-1.5 rounded-xl border text-[10px] font-black uppercase tracking-wider flex items-center gap-1.5 cursor-pointer active:scale-95 transition-all ${
+                  showAdvancedSearch 
+                    ? 'bg-primary border-primary text-white font-extrabold' 
+                    : 'bg-neutral-50 hover:bg-neutral-100 border-outline-variant/20 text-outline font-black'
+                }`}
+              >
+                <SlidersHorizontal className="w-3.5 h-3.5" />
+                <span>FILTERS</span>
+                {hasAnyActiveFilter() && (
+                  <span className="w-1.5 h-1.5 bg-amber-500 rounded-full animate-pulse" />
+                )}
+                <span className="text-[9px] opacity-75">{showAdvancedSearch ? '▲' : '▼'}</span>
+              </button>
+
+              {/* Clear button */}
+              {(hasAnyActiveFilter() || selectedRadius !== 25) && (
                 <button
                   type="button"
-                  onClick={handleResetFilters}
-                  className="text-[10px] font-bold text-rose-600 hover:text-rose-700 hover:underline cursor-pointer"
+                  onClick={() => {
+                    handleResetFilters();
+                    setSelectedRadius(25);
+                    setIsSearchChangingRadius(false);
+                    setShowAdvancedSearch(false);
+                  }}
+                  className="px-2 py-1 text-[10px] font-extrabold text-rose-600 hover:text-rose-700 cursor-pointer"
                 >
-                  Reset Filters
+                  Clear
                 </button>
               )}
             </div>
+          </div>
 
-            {showAdvancedSearch && (
-              <div className="bg-surface-container-low border border-outline-variant/15 p-3 rounded-2xl space-y-3.5 pt-2 text-left animate-in duration-200 fade-in">
+          {/* Inline Proximity Slider */}
+          {isSearchChangingRadius && (
+            <div className="bg-neutral-50/65 rounded-2xl p-4 border border-outline-variant/15 space-y-3 animate-in fade-in duration-155">
+              <div className="flex justify-between items-center select-none">
+                <span className="text-[9.5px] uppercase font-black text-outline tracking-wider">SELECT PROXIMITY RANGE</span>
+                <button 
+                  onClick={() => setIsSearchChangingRadius(false)}
+                  className="text-[9.5px] font-black text-rose-600 hover:text-rose-700 cursor-pointer uppercase tracking-wider"
+                >
+                  CLOSE
+                </button>
+              </div>
+
+              <div className="flex flex-wrap gap-1.5">
+                {([5, 10, 25, 50, 100] as const).map((r) => {
+                  const isSelected = selectedRadius === r;
+                  return (
+                    <button
+                      key={r}
+                      type="button"
+                      onClick={() => setSelectedRadius(r)}
+                      className={`px-3 py-1.5 rounded-xl text-xs font-bold border transition-all cursor-pointer ${isSelected ? 'bg-primary border-primary text-white font-extrabold' : 'bg-white border-outline-variant/25 text-on-surface-variant hover:bg-neutral-100/50'}`}
+                    >
+                      {r} km
+                    </button>
+                  );
+                })}
+                <button
+                  type="button"
+                  onClick={() => setSelectedRadius('Custom')}
+                  className={`px-3 py-1.5 rounded-xl text-xs font-bold border transition-all cursor-pointer ${selectedRadius === 'Custom' ? 'bg-primary border-primary text-white font-extrabold' : 'bg-white border-outline-variant/25 text-on-surface-variant hover:bg-neutral-100/50'}`}
+                >
+                  Custom Range
+                </button>
+              </div>
+
+              {selectedRadius === 'Custom' && (
+                <div className="pt-2">
+                  <div className="flex justify-between items-center text-xs text-outline font-bold mb-1">
+                    <span>Radius limit</span>
+                    <span className="text-secondary font-black">{customRadiusValue} km</span>
+                  </div>
+                  <input 
+                    type="range" 
+                    min="1" 
+                    max="150" 
+                    value={customRadiusValue} 
+                    onChange={(e) => setCustomRadiusValue(Number(e.target.value))}
+                    className="w-full h-1 bg-outline-variant rounded-lg appearance-none cursor-pointer accent-primary"
+                  />
+                </div>
+              )}
+            </div>
+          )}
+
+          {/* Inline Advanced Filters Block */}
+          {showAdvancedSearch && (
+            <div className="bg-surface-container-low border border-outline-variant/15 p-3 rounded-2xl space-y-3.5 pt-2 text-left animate-in duration-200 fade-in">
                 {/* Location filters */}
                 <div>
                   <h4 className="text-[9px] uppercase font-black tracking-wider text-outline mb-1.5">📍 Location Filters</h4>
@@ -952,7 +1682,6 @@ export default function DiscoverTab({
                 </div>
               </div>
             )}
-          </div>
 
           {/* Dynamic Multi-Sector Result Streams */}
           <div className="space-y-4 pt-1">
@@ -1001,11 +1730,11 @@ export default function DiscoverTab({
             {(() => {
               const query = searchQuery.trim().toLowerCase();
               const matchingHubs = hubs.filter(hub => {
-                if (!query) return false; // Show match only if searched query present
+                if (!query || !hub) return false; // Show match only if searched query present
                 return (
-                  hub.name.toLowerCase().includes(query) ||
-                  hub.category.toLowerCase().includes(query) ||
-                  hub.tag.toLowerCase().includes(query)
+                  String(hub.name || '').toLowerCase().includes(query) ||
+                  String(hub.category || '').toLowerCase().includes(query) ||
+                  String(hub.tag || '').toLowerCase().includes(query)
                 );
               });
 
@@ -3484,260 +4213,441 @@ export default function DiscoverTab({
           </div>
 
         </div>
+      ) : viewingFullSection ? (
+        /* ==================== SUB-PAGE VIEW (NEW CONTENT INTERFACE) ==================== */
+        renderFullSectionView()
       ) : (
-        /* ==================== CORE DISCOVER SCREEN IMPROVEMENTS ==================== */
-        <>
-          {/* Environmental Mission outcomes Carousel */}
-          <section className="mb-6">
-            <div className="flex justify-between items-end mb-3">
-              <h2 className="text-sm font-bold uppercase tracking-wider text-outline flex items-center gap-1.5">
-                <Award className="w-4 h-4 text-primary" /> Verified Environmental Events
-              </h2>
-            </div>
-
-            <div className="flex gap-4 overflow-x-auto hide-scrollbar pb-2 shrink-0 select-none">
-              {impacts.map((imp) => (
-                <div 
-                  key={imp.id} 
-                  className="flex-none w-64 bg-surface rounded-2xl overflow-hidden border border-outline-variant/35 relative hover:shadow-sm"
-                >
-                  <div className="h-28 overflow-hidden relative bg-neutral-100 shrink-0">
-                    <img 
-                      src={imp.image || undefined} 
-                      alt={imp.title} 
-                      className="w-full h-full object-cover" 
-                    />
-                    <div className="absolute top-2.5 left-2.5 bg-emerald-600 text-white px-2.5 py-0.5 rounded-full text-[8px] font-bold tracking-wider">
-                      CONDUCT VERIFIED
-                    </div>
-                  </div>
-                  <div className="p-3 bg-white">
-                    <h4 className="font-bold text-xs text-on-surface truncate">{imp.title}</h4>
-                    <p className="text-[10px] text-emerald-600 font-extrabold mt-1">{imp.impactValue || '36 volunteer hours logs'}</p>
-                  </div>
-                </div>
-              ))}
-            </div>
-          </section>
-
-          {/* Events Near You Section (dynamic location matching) */}
-          <section className="mb-6">
-            <div className="flex items-center justify-between mb-3 border-b border-outline-variant/10 pb-2">
+        /* ==================== 8-SECTION ORDERED DISCOVER SCREEN ==================== */
+          <>
+          {/* 1. EVENTS NEAR YOU */}
+          <section className="mb-5 bg-slate-50/50 p-4 rounded-2xl border border-outline-variant/10 shadow-3xs">
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2.5 border-b border-outline-variant/10 pb-3 mb-3 select-none">
               <div>
-                <h2 className="text-sm font-black uppercase tracking-wider text-outline flex items-center gap-1.5">
-                  <MapPin className="w-4 h-4 text-secondary" /> 
+                <h2 className="text-xs font-black uppercase tracking-wider text-[#2c3e50] flex items-center gap-1.5">
+                  <MapPin className="w-4 h-4 text-secondary animate-bounce" /> 
                   <span>Events Near You</span>
                 </h2>
-                <p className="text-[10px] text-outline font-semibold mt-0.5">
-                  Based on your current location: <span className="text-primary font-bold">{profileLocation || 'Downtown Hubs Area'}</span>
+                <p className="text-[9.5px] text-outline font-semibold">
+                  Range: <span className="text-secondary font-black">{selectedRadius === 'Custom' ? `${customRadiusValue} km (Custom)` : `${selectedRadius} km`}</span>
                 </p>
+              </div>
+
+              <div className="flex items-center gap-1.5">
+                <button
+                  type="button"
+                  onClick={() => setViewingFullSection('near')}
+                  className="px-2.5 py-1 bg-primary/10 border border-primary/20 text-primary hover:bg-primary/15 rounded-lg text-[9px] font-black uppercase tracking-wider flex items-center gap-0.5 transition-all cursor-pointer"
+                >
+                  <span>View Near You →</span>
+                </button>
+
+                {/* Radius Control Trigger */}
+                <button
+                  type="button"
+                  onClick={() => setIsChangingRadius(!isChangingRadius)}
+                  className="px-2.5 py-1 bg-white border border-outline-variant/20 text-outline hover:text-on-surface hover:bg-neutral-50 rounded-lg text-[9px] font-black uppercase tracking-wider flex items-center gap-1 transition-all cursor-pointer shadow-3xs"
+                >
+                  <Sliders className="w-3 h-3 text-primary" />
+                  <span>Adjust Radius</span>
+                </button>
               </div>
             </div>
 
-            {nearEvents.length === 0 ? (
-              <p className="text-xs text-outline py-4 text-center bg-surface-container-low rounded-xl border border-dashed border-outline-variant/30">No nearby events located in your coordinates.</p>
-            ) : (
-              <div className="flex gap-4 overflow-x-auto hide-scrollbar pb-2 shrink-0 select-none">
-                {nearEvents.map((evt) => (
-                  <div 
-                    key={evt.id}
-                    onClick={() => {
-                      setSelectedEvent(evt);
-                      setActiveExpTab('overview');
-                    }}
-                    className="flex-none w-56 bg-surface rounded-2xl overflow-hidden border border-outline-variant/35 relative hover:shadow-md cursor-pointer transition-all"
+            {/* Change Radius Inline Selector */}
+            {isChangingRadius && (
+              <div className="p-3 bg-white border border-outline-variant/20 rounded-xl mb-3 shadow-3xs space-y-2 animate-in slide-in-from-top-1 duration-150">
+                <div className="flex items-center justify-between">
+                  <span className="text-[9px] font-black uppercase text-outline">Select Proximity Range</span>
+                  <button 
+                    onClick={() => setIsChangingRadius(false)}
+                    className="text-primary text-[9px] font-bold uppercase tracking-wider hover:underline"
                   >
-                    <div className="h-28 overflow-hidden relative bg-neutral-100 shrink-0">
-                      <img 
-                        src={evt.image || undefined} 
-                        alt={evt.title} 
-                        className="w-full h-full object-cover" 
-                      />
-                      <div className="absolute top-2 left-2 bg-black/60 text-white px-2 py-0.5 rounded text-[8px] font-bold">
-                        {getProximityLabel(evt.location)}
-                      </div>
-                      <div className="absolute bottom-2 left-2">
-                        <span className="bg-primary text-white px-1.5 py-0.5 rounded-full text-[7.5px] font-bold uppercase tracking-wider">
-                          {evt.category}
-                        </span>
-                      </div>
+                    Close
+                  </button>
+                </div>
+
+                <div className="flex flex-wrap gap-1">
+                  {([5, 10, 25, 50, 100, 'Custom'] as const).map((r) => {
+                    const isSelected = selectedRadius === r;
+                    return (
+                      <button
+                        key={r}
+                        type="button"
+                        onClick={() => setSelectedRadius(r)}
+                        className={`px-2.5 py-1 rounded-lg text-[9px] font-black transition-all cursor-pointer ${isSelected ? 'bg-primary border-primary text-white' : 'bg-neutral-50 border-outline-variant/10 text-on-surface-variant hover:bg-neutral-100'}`}
+                      >
+                        {r === 'Custom' ? 'Custom Range' : `${r} km`}
+                      </button>
+                    );
+                  })}
+                </div>
+
+                {selectedRadius === 'Custom' && (
+                  <div className="pt-1">
+                    <div className="flex justify-between items-center text-[9px] text-outline font-bold mb-1">
+                      <span>Radius limit</span>
+                      <span className="text-secondary font-black">{customRadiusValue} km</span>
                     </div>
-                    <div className="p-3 bg-white">
-                      <h4 className="font-extrabold text-xs text-on-surface truncate leading-tight">{evt.title}</h4>
-                      <p className="text-[9px] text-outline mt-1 truncate">📍 {evt.location}</p>
-                      <p className="text-[9px] text-primary font-bold mt-0.5">{evt.date}</p>
-                    </div>
+                    <input 
+                      type="range" 
+                      min="1" 
+                      max="150" 
+                      value={customRadiusValue} 
+                      onChange={(e) => setCustomRadiusValue(Number(e.target.value))}
+                      className="w-full accent-primary h-1 bg-neutral-100 rounded cursor-pointer"
+                    />
                   </div>
-                ))}
+                )}
               </div>
             )}
+
+            {/* List near events */}
+            <div className="mt-1">
+              {renderSectionScroll(
+                nearEvents,
+                (evt) => renderEventCard(evt, 'near', true),
+                () => setViewingFullSection('near'),
+                <div className="p-4 text-center bg-white rounded-xl border border-dashed border-outline-variant/20 select-none">
+                  <p className="text-outline text-xs">No active gatherings found within {selectedRadius === 'Custom' ? customRadiusValue : selectedRadius} km.</p>
+                  <p className="text-[9px] text-outline-variant mt-0.5 font-semibold">Broaden your neighborhood coverage with "Adjust Radius".</p>
+                </div>
+              )}
+            </div>
           </section>
 
-          {/* Trending Communities Section (added to prioritize discoverability per request) */}
-          <section className="mb-6">
-            <div className="flex items-center justify-between mb-3 border-b border-outline-variant/10 pb-2">
-              <div>
-                <h2 className="text-sm font-black uppercase tracking-wider text-outline flex items-center gap-1.5 select-none">
-                  <Globe className="w-4 h-4 text-emerald-600 animate-none" />
-                  <span>Trending Communities</span>
-                </h2>
-                <p className="text-[10px] text-outline font-semibold mt-0.5 select-none">
-                  Top-rated neighbor hubs active within your region
-                </p>
-              </div>
+          {/* 2. HAPPENING TODAY */}
+          {(() => {
+            const todayEvents = events.filter(e => !e.suspended && !e.isCompleted && String(e.date || '').toLowerCase().includes('today'));
+            return (
+              <section className="mb-5 bg-slate-50/50 p-4 rounded-xl border border-outline-variant/10 shadow-3xs">
+                <div className="flex items-center justify-between mb-3 border-b border-outline-variant/10 pb-3">
+                  <h2 className="text-xs font-black uppercase tracking-wider text-[#2c3e50] flex items-center gap-1.5 select-none">
+                    <Clock className="w-4 h-4 text-primary" /> 
+                    <span>Happening Today</span>
+                  </h2>
+
+                  <button
+                    type="button"
+                    onClick={() => setViewingFullSection('today')}
+                    className="px-2.5 py-1 bg-primary/10 border border-primary/20 text-primary hover:bg-primary/15 rounded-lg text-[9px] font-black uppercase tracking-wider flex items-center gap-0.5 transition-all cursor-pointer"
+                  >
+                    <span>View Today →</span>
+                  </button>
+                </div>
+
+                <div className="mt-1">
+                  {renderSectionScroll(
+                    todayEvents,
+                    (evt) => renderEventCard(evt, 'today', true),
+                    () => setViewingFullSection('today'),
+                    <div className="p-4 text-center bg-white rounded-xl border border-dashed border-outline-variant/20">
+                      <p className="text-xs text-outline font-semibold">No community events matching today's timeline.</p>
+                      <p className="text-[9px] text-outline-variant mt-0.5 font-semibold">Have free coordinates? Host a gather!</p>
+                    </div>
+                  )}
+                </div>
+              </section>
+            );
+          })()}
+
+          {/* 3. THIS WEEKEND */}
+          {(() => {
+            const weekendEvents = events.filter(e => !e.suspended && !e.isCompleted && (
+              String(e.date || '').toLowerCase().includes('weekend') || 
+              String(e.date || '').toLowerCase().includes('saturday') || 
+              String(e.date || '').toLowerCase().includes('sunday')
+            ));
+            return (
+              <section className="mb-5 bg-slate-50/50 p-4 rounded-xl border border-outline-variant/10 shadow-3xs">
+                <div className="flex items-center justify-between mb-3 border-b border-outline-variant/10 pb-3">
+                  <h2 className="text-xs font-black uppercase tracking-wider text-[#2c3e50] flex items-center gap-1.5 select-none">
+                    <Calendar className="w-4 h-4 text-[#3498db]" /> 
+                    <span>This Weekend</span>
+                  </h2>
+
+                  <button
+                    type="button"
+                    onClick={() => setViewingFullSection('weekend')}
+                    className="px-2.5 py-1 bg-primary/10 border border-primary/20 text-primary hover:bg-primary/15 rounded-lg text-[9px] font-black uppercase tracking-wider flex items-center gap-0.5 transition-all cursor-pointer animate-none"
+                  >
+                    <span>View Weekend →</span>
+                  </button>
+                </div>
+
+                <div className="mt-1">
+                  {renderSectionScroll(
+                    weekendEvents,
+                    (evt) => renderEventCard(evt, 'weekend', true),
+                    () => setViewingFullSection('weekend'),
+                    <div className="p-4 text-center bg-white rounded-xl border border-dashed border-outline-variant/20">
+                      <p className="text-xs text-outline font-semibold">No community gathers scheduled for this weekend yet.</p>
+                      <p className="text-[9px] text-outline-variant mt-0.5 font-semibold">Launch a neighborhood gather to rally allies.</p>
+                    </div>
+                  )}
+                </div>
+              </section>
+            );
+          })()}
+
+          {/* 4. YOUR ACTIVITY */}
+          {(() => {
+            const upcomingRegistered = events.filter(e => !e.suspended && e.isAttending && !e.isCompleted);
+            const previouslyCompleted = events.filter(e => !e.suspended && e.isCompleted && e.isAttending);
+            const ongoingEvents = upcomingRegistered.filter(e => String(e.date || '').toLowerCase().includes('today') || String(e.date || '').toLowerCase().includes('now'));
+            
+            const allMyActivityEvents = [...ongoingEvents, ...upcomingRegistered, ...previouslyCompleted];
+
+            return (
+              <section className="mb-5 bg-slate-50/50 p-4 rounded-xl border border-outline-variant/10 shadow-3xs">
+                <div className="flex items-center justify-between mb-3 border-b border-outline-variant/10 pb-3">
+                  <h2 className="text-xs font-black uppercase tracking-wider text-[#2c3e50] flex items-center gap-1.5 select-none">
+                    <span className="text-emerald-600">⚡</span>
+                    <span>Your Activity</span>
+                  </h2>
+
+                  <button
+                    type="button"
+                    onClick={() => setViewingFullSection('activity')}
+                    className="px-2.5 py-1 bg-primary/10 border border-primary/20 text-primary hover:bg-primary/15 rounded-lg text-[9px] font-black uppercase tracking-wider flex items-center gap-0.5 transition-all cursor-pointer animate-none"
+                  >
+                    <span>View Activity →</span>
+                  </button>
+                </div>
+
+                <div className="mt-1">
+                  {renderSectionScroll(
+                    allMyActivityEvents,
+                    (evt) => renderEventCard(evt, 'activity', true),
+                    () => setViewingFullSection('activity'),
+                    <div className="p-4 text-center bg-white rounded-xl border border-dashed border-outline-variant/15 text-outline select-none">
+                      <p className="text-xs font-semibold text-on-surface">No local activity logs yet.</p>
+                      <p className="text-[9px] text-outline mt-1 max-w-xs mx-auto">Commit to neighborhood opportunities below to make block impacts!</p>
+                    </div>
+                  )}
+                </div>
+              </section>
+            );
+          })()}
+
+          {/* 5. SAVED / INTERESTED EVENTS */}
+          {(() => {
+            const savedEvents = events.filter(e => !e.suspended && (savedEventIds.includes(e.id) || e.participationLevel === 'Interested' || e.participationLevel === 'Maybe'));
+            return (
+              <section className="mb-5 bg-pink-50/10 p-4 rounded-xl border border-pink-100/20 shadow-3xs">
+                <div className="flex items-center justify-between mb-3 border-b border-pink-100/35 pb-3 select-none">
+                  <h2 className="text-xs font-black uppercase tracking-wider text-[#9c27b0] flex items-center gap-1.5">
+                    <Heart className="w-5 h-5 text-secondary fill-secondary" />
+                    <span>Saved & Interested Gathers ({savedEvents.length})</span>
+                  </h2>
+
+                  <button
+                    type="button"
+                    onClick={() => setViewingFullSection('saved')}
+                    className="px-2.5 py-1 bg-primary/10 border border-primary/20 text-primary hover:bg-primary/15 rounded-lg text-[9px] font-black uppercase tracking-wider flex items-center gap-0.5 transition-all cursor-pointer animate-none"
+                  >
+                    <span>View Saved →</span>
+                  </button>
+                </div>
+
+                <div className="mt-1">
+                  {renderSectionScroll(
+                    savedEvents,
+                    (evt) => renderEventCard(evt, 'saved', true),
+                    () => setViewingFullSection('saved'),
+                    <div className="p-4 text-center bg-white rounded-xl border border-dashed border-outline-variant/10 text-outline">
+                      <p className="text-xs font-semibold">Your watchlist is empty.</p>
+                      <p className="text-[9px] text-outline-variant mt-0.5">Tap the heart on event cards to bookmark coordinates.</p>
+                    </div>
+                  )}
+                </div>
+              </section>
+            );
+          })()}
+
+          {/* 6. SUGGESTED FOR YOU */}
+          {(() => {
+            const hasSuggestions = suggestedEvents && suggestedEvents.length > 0;
+            return (
+              <section className="mb-5 bg-indigo-50/10 border border-indigo-100/20 p-4 rounded-xl shadow-3xs">
+                <div className="flex items-center justify-between mb-3 border-b border-outline-variant/10 pb-3 select-none">
+                  <div className="text-left">
+                    <h2 className="text-xs font-black uppercase tracking-wider text-[#2c3e50] flex items-center gap-1.5">
+                      <Sparkles className="w-4 h-4 text-primary animate-pulse" />
+                      <span>Suggested For You</span>
+                    </h2>
+                    <p className="text-[9px] text-outline font-semibold mt-0.5">Matching your interests and coordinates.</p>
+                  </div>
+
+                  {hasSuggestions && (
+                    <button
+                      type="button"
+                      onClick={() => setViewingFullSection('suggested')}
+                      className="px-2.5 py-1 bg-primary/10 border border-primary/20 text-primary hover:bg-primary/15 rounded-lg text-[9px] font-black uppercase tracking-wider flex items-center gap-0.5 transition-all cursor-pointer animate-none"
+                    >
+                      <span>View Suggested →</span>
+                    </button>
+                  )}
+                </div>
+
+                <div className="mt-1">
+                  {renderSectionScroll(
+                    suggestedEvents,
+                    ({ event: evt, score }) => {
+                      const percent = Math.min(99, Math.round(20 + score * 0.7));
+                      return (
+                        <div key={evt.id} className="relative shrink-0 select-none">
+                          <div className="absolute top-2 right-2 z-10 bg-primary/15 border border-primary/25 text-primary text-[8px] font-black px-1.5 py-0.5 rounded shadow-3xs">
+                            ✨ {percent}% Match
+                          </div>
+                          {renderEventCard(evt, 'suggested', true)}
+                        </div>
+                      );
+                    },
+                    () => setViewingFullSection('suggested'),
+                    <div className="p-4 text-center bg-white rounded-xl border border-dashed border-outline-variant/10 text-outline">
+                      <p className="text-xs font-semibold">Refine your Profile Interests to generate custom suggestions.</p>
+                    </div>
+                  )}
+                </div>
+              </section>
+            );
+          })()}
+
+          {/* 7. TRUSTED ORGANIZERS */}
+          <section className="mb-5 bg-slate-50/50 p-4 rounded-xl border border-outline-variant/10 shadow-3xs">
+            <div className="flex items-center justify-between mb-3 border-b border-outline-variant/10 pb-3 select-none">
+              <h2 className="text-xs font-black uppercase tracking-wider text-[#2c3e50] flex items-center gap-1.5">
+                <Shield className="w-4 h-4 text-emerald-600" />
+                <span>Trusted Organizers</span>
+              </h2>
+
+              <button
+                type="button"
+                onClick={() => setViewingFullSection('organizers')}
+                className="px-2.5 py-1 bg-primary/10 border border-primary/20 text-primary hover:bg-primary/15 rounded-lg text-[9px] font-black uppercase tracking-wider flex items-center gap-0.5 transition-all cursor-pointer animate-none"
+              >
+                <span>View Organizers →</span>
+              </button>
             </div>
 
-            {hubs.length === 0 ? (
-              <p className="text-xs text-outline py-4 text-center bg-surface-container-low rounded-xl border border-dashed border-outline-variant/30 select-none">No trending hubs found.</p>
-            ) : (
-              <div className="flex gap-4 overflow-x-auto hide-scrollbar pb-2 shrink-0 select-none">
-                {hubs.map((hub) => (
+            <div className="mt-1">
+              {renderSectionScroll(
+                [
+                  {
+                    name: 'David Atten',
+                    avatar: 'https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?w=150&auto=format&fit=crop&q=80',
+                    rank: 'Coastal Bay Sector Lead',
+                    conducted: 24,
+                    reliability: 97,
+                    bio: 'Passionate marine ecology, biodiversity, and coastal cleanups. Spearheading shoreline garbage monitoring and micro-plastic extraction programs.'
+                  },
+                  {
+                    name: 'Elena Rossi',
+                    avatar: 'https://images.unsplash.com/photo-1544005313-94ddf0286df2?w=150&auto=format&fit=crop&q=80',
+                    rank: 'Youth Literacy Moderator',
+                    conducted: 8,
+                    reliability: 96,
+                    bio: 'Educational coordinator. Oversees smart tutoring hubs, homework workshops, and primary curriculum supplements.'
+                  },
+                  {
+                    name: 'Sarah Jenkins',
+                    avatar: 'https://images.unsplash.com/photo-1494790108377-be9c29b29330?w=150&auto=format&fit=crop&q=80',
+                    rank: 'Municipal Cycle Host',
+                    conducted: 45,
+                    reliability: 98,
+                    bio: 'Community cyclist. Leads safe paced pacing groups, mountain bike path restorations, and urban bike safety courses.'
+                  }
+                ],
+                (org) => (
                   <div 
-                    key={hub.id}
-                    className="flex-none w-52 bg-white rounded-2xl overflow-hidden border border-outline-variant/35 relative hover:shadow-md transition-all flex flex-col justify-between"
+                    key={org.name}
+                    className="w-[180px] sm:w-[200px] shrink-0 snap-start bg-white border border-outline-variant/10 hover:shadow-xs rounded-xl p-3 flex flex-col justify-between text-left transition-all select-none min-h-[190px]"
                   >
                     <div>
-                      <div className="h-24 overflow-hidden relative bg-neutral-100 shrink-0">
-                        <img 
-                          src={hub.image || undefined} 
-                          alt={hub.name} 
-                          className="w-full h-full object-cover" 
-                        />
-                        <div className="absolute top-2 left-2 bg-black/60 text-white px-2 py-0.5 rounded text-[8px] font-bold">
-                          ⭐ {hub.rating || '4.8'}
-                        </div>
-                        <div className="absolute bottom-2 left-2">
-                          <span className="bg-secondary text-white px-1.5 py-0.5 rounded-full text-[7.5px] font-bold uppercase tracking-wider">
-                            {hub.category}
-                          </span>
+                      <div className="flex items-center gap-2 mb-1.5">
+                        <img src={org.avatar} alt={org.name} className="w-8 h-8 rounded-full object-cover shrink-0 border border-outline-variant/10" />
+                        <div className="min-w-0">
+                          <h4 className="font-extrabold text-[11px] text-on-surface truncate flex items-center gap-0.5">
+                            {org.name} <span className="text-primary text-[8px]">🛡️</span>
+                          </h4>
+                          <p className="text-[8px] text-outline truncate">{org.rank}</p>
                         </div>
                       </div>
-                      <div className="p-3 text-left">
-                        <h4 className="font-extrabold text-xs text-on-surface truncate leading-tight">{hub.name}</h4>
-                        <p className="text-[9px] text-outline mt-1">{hub.members} members • {hub.activeMembers} active</p>
-                      </div>
+                      <p className="text-[9px] text-outline line-clamp-2 leading-tight mb-2">{org.bio}</p>
                     </div>
-                    <div className="p-3 pt-0">
+
+                    <div className="border-t border-outline-variant/10 pt-2">
+                      <div className="flex justify-between items-center text-[8.5px] text-outline font-bold mb-1">
+                        <span>Gathers:</span>
+                        <span className="text-on-surface font-extrabold">{org.conducted}</span>
+                      </div>
+                      <div className="flex justify-between items-center text-[8.5px] text-outline font-bold">
+                        <span>Reliability:</span>
+                        <span className="text-emerald-700 font-extrabold">{org.reliability}%</span>
+                      </div>
                       <button
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          onToggleJoinHub?.(hub.id);
-                        }}
-                        className={`w-full py-1.5 rounded-xl text-[10px] font-bold transition-all cursor-pointer animate-none ${
-                          hub.isJoined 
-                            ? 'bg-emerald-50 text-emerald-700 border border-emerald-200' 
-                            : 'bg-primary text-on-primary hover:bg-primary/95 shadow-xs'
-                        }`}
+                        type="button"
+                        onClick={() => setSelectedProfileUser({
+                          name: org.name,
+                          avatar: org.avatar,
+                          verificationStatus: 'Trusted Organizer',
+                          bio: org.bio,
+                          location: 'Downtown Hubs Area'
+                        })}
+                        className="w-full mt-2 py-1 bg-neutral-50 hover:bg-neutral-100 border border-outline-variant/10 text-[8px] font-black uppercase text-outline rounded active:scale-95 transition-all text-center select-none cursor-pointer"
                       >
-                        {hub.isJoined ? '✓ Joined' : 'Join Hub'}
+                        Shield Profile
                       </button>
                     </div>
                   </div>
-                ))}
-              </div>
-            )}
-          </section>
-
-          {/* Upcoming Event stream list Grid */}
-          <section>
-            <div className="flex justify-between items-center mb-4">
-              <h2 className="text-base font-bold text-on-surface flex items-center gap-1.5">
-                <Sparkles className="w-5 h-5 text-primary" /> Upcoming Community Gathers ({filteredEvents.length})
-              </h2>
-              {hasAnyActiveFilter() && (
-                <button 
-                  onClick={handleResetFilters}
-                  className="text-primary text-xs font-bold hover:underline cursor-pointer"
-                >
-                  Clear Filters
-                </button>
+                ),
+                () => setViewingFullSection('organizers'),
+                null
               )}
             </div>
+          </section>
 
-            {filteredEvents.length === 0 ? (
-              <div className="p-8 text-center bg-surface-container-low rounded-2xl border border-outline-variant/30">
-                <p className="text-on-surface-variant text-sm font-medium">No community events fit active search conditions.</p>
-                <button 
+          {/* 8. BROWSE CATEGORIES */}
+          <section className="mb-6">
+            <div className="flex items-center justify-between mb-3 border-b border-outline-variant/10 pb-2 select-none">
+              <h2 className="text-xs font-black uppercase tracking-wider text-outline flex items-center gap-1.5">
+                <Globe className="w-4 h-4 text-[#e67e22]" />
+                <span>Browse Categories</span>
+              </h2>
+            </div>
+
+            <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
+              {[
+                { name: 'Volunteering', icon: '🙌', color: 'bg-emerald-50 border-emerald-100 text-emerald-800' },
+                { name: 'Environment', icon: '🌱', color: 'bg-green-50 border-green-100 text-green-800' },
+                { name: 'Education', icon: '📚', color: 'bg-amber-50 border-amber-100 text-amber-800' },
+                { name: 'Cycling', icon: '🚴', color: 'bg-blue-50 border-blue-100 text-blue-800' },
+                { name: 'Yoga & Meditation', icon: '🧘', color: 'bg-indigo-50 border-indigo-100 text-indigo-800' },
+                { name: 'Reading', icon: '📖', color: 'bg-purple-50 border-purple-100 text-purple-800' },
+                { name: 'Photography', icon: '📷', color: 'bg-slate-50 border-slate-100 text-slate-800' },
+                { name: 'Technology', icon: '💻', color: 'bg-cyan-50 border-cyan-100 text-cyan-800' },
+                { name: 'Pets & Animals', icon: '🐕', color: 'bg-pink-50 border-pink-100 text-pink-800' },
+                { name: 'Wellness', icon: '✨', color: 'bg-teal-50 border-teal-100 text-teal-800' },
+                { name: 'Social Causes', icon: '✊', color: 'bg-red-50 border-red-100 text-red-800' }
+              ].map((cat, ci) => (
+                <button
+                  key={ci}
+                  type="button"
                   onClick={() => {
-                    setSearchQuery('');
-                    handleResetFilters();
+                    // Activate search overlay and input selected category
+                    setSearchQuery(cat.name);
+                    const triggerBtn = document.querySelector('[title="Search and filter events/hubs"]');
+                    if (triggerBtn) {
+                      (triggerBtn as HTMLButtonElement).click();
+                    }
                   }}
-                  className="mt-2 text-primary text-xs font-bold hover:underline cursor-pointer"
+                  className={`p-2 sm:p-2.5 border rounded-xl flex items-center gap-2 transition-all cursor-pointer active:scale-95 text-left text-[11px] font-bold shadow-3xs hover:shadow-2xs ${cat.color}`}
                 >
-                  Reset all search filters
+                  <span className="text-sm shrink-0 select-none">{cat.icon}</span>
+                  <span className="truncate">{cat.name}</span>
                 </button>
-              </div>
-            ) : (
-              <div className="space-y-4">
-                {filteredEvents.map((event) => {
-                  return (
-                    <div 
-                      key={event.id}
-                      onClick={() => {
-                        setSelectedEvent(event);
-                        setActiveExpTab('overview');
-                      }}
-                      className="bg-white rounded-2xl border border-outline-variant/30 overflow-hidden hover:shadow-md hover:border-primary-container transition-all group cursor-pointer flex flex-col md:flex-row shadow-2xs"
-                    >
-                      {/* Media Thumb */}
-                      <div className="h-40 md:h-auto md:w-44 overflow-hidden relative bg-neutral-100 shrink-0">
-                        <img 
-                          src={event.image || undefined} 
-                          alt={event.title} 
-                          className="w-full h-full object-cover group-hover:scale-102 transition-transform duration-500" 
-                        />
-                        <div className="absolute top-2.5 left-2.5 bg-black/60 text-white px-2.5 py-0.5 rounded text-[8px] font-bold">
-                          Access: {event.accessMode}
-                        </div>
-                      </div>
-
-                      {/* Content details */}
-                      <div className="p-4 flex-grow flex flex-col justify-between">
-                        <div>
-                          <div className="flex justify-between items-start mb-1 text-[11px] font-semibold text-outline">
-                            <span className="text-primary uppercase tracking-wide">{event.category}</span>
-                            <span>{event.date}</span>
-                          </div>
-
-                          <h4 className="font-extrabold text-sm md:text-base text-on-surface group-hover:text-primary transition-colors leading-tight mb-1">{event.title}</h4>
-                          <p className="text-on-surface-variant text-xs line-clamp-2 leading-relaxed mb-3">{event.description || 'Join local community forces around this safe environmental volunteer cleanup and education gathering.'}</p>
-                        </div>
-
-                        {/* Trust elements display inside cards */}
-                        <div className="grid grid-cols-2 gap-2 border-t border-b border-outline-variant/10 py-2 mb-3 bg-surface-container-high/15 text-[10px]">
-                          <div className="flex items-center gap-1.5 min-w-0">
-                            <img src={event.organizerAvatar || undefined} alt={event.organizerName} className="w-5 h-5 rounded-full object-cover border border-outline-variant/20 shrink-0" />
-                            <p className="truncate font-bold text-on-surface">
-                              {event.organizerName}
-                              {event.organizerVerification === 'Trusted Organizer' ? ' 🛡️' : ' ✓'}
-                            </p>
-                          </div>
-                          <div className="text-outline text-right font-medium">
-                            Conducted: <span className="font-bold text-on-surface">{event.organizerPastEvents} events</span>
-                          </div>
-                        </div>
-
-                        {/* Actions line with attending status indicator */}
-                        <div className="flex justify-between items-center text-xs">
-                          <p className="text-outline font-semibold">👥 {event.attendeesCount} participants</p>
-                          
-                          <div className="flex items-center gap-1.5">
-                            {event.isAttending && (
-                              <span className="bg-emerald-100 text-emerald-800 text-[10px] font-bold px-2.5 py-1 rounded-full border border-emerald-200">
-                                ✓ Registered
-                              </span>
-                            )}
-                            <span className="text-primary font-bold inline-flex items-center gap-0.5 group-hover:translate-x-1 transition-transform">
-                              Coordinate <ChevronRight className="w-4 h-4" />
-                            </span>
-                          </div>
-                        </div>
-                      </div>
-                    </div>
-                  );
-                })}
-              </div>
-            )}
+              ))}
+            </div>
           </section>
         </>
       )}
@@ -3802,6 +4712,60 @@ export default function DiscoverTab({
                     />
                   </div>
                 </div>
+              </div>
+
+              {/* Proximity / Radius Filter */}
+              <div className="bg-neutral-50/50 rounded-2xl p-4 border border-outline-variant/15 space-y-3">
+                <div className="flex justify-between items-center select-none">
+                  <div>
+                    <h4 className="text-[10px] uppercase font-black tracking-widest text-[#2c3e50] flex items-center gap-1.5">
+                      <MapPin className="w-3.5 h-3.5 text-secondary animate-bounce" /> Proximity Range Limit
+                    </h4>
+                    <p className="text-[9px] text-outline font-semibold mt-0.5">
+                      Current limit: <span className="text-secondary font-black">{selectedRadius === 'Custom' ? `${customRadiusValue} km (Custom)` : `${selectedRadius} km`}</span>
+                    </p>
+                  </div>
+                </div>
+
+                <div className="flex flex-wrap gap-1.5">
+                  {([5, 10, 25, 50, 100] as const).map((r) => {
+                    const isSelected = selectedRadius === r;
+                    return (
+                      <button
+                        key={r}
+                        type="button"
+                        onClick={() => setSelectedRadius(r)}
+                        className={`px-3 py-1.5 rounded-xl text-xs font-bold border transition-all cursor-pointer ${isSelected ? 'bg-primary border-primary text-white font-extrabold' : 'bg-white border-outline-variant/25 text-on-surface-variant hover:bg-neutral-100/50'}`}
+                      >
+                        {r} km
+                      </button>
+                    );
+                  })}
+                  <button
+                    type="button"
+                    onClick={() => setSelectedRadius('Custom')}
+                    className={`px-3 py-1.5 rounded-xl text-xs font-bold border transition-all cursor-pointer ${selectedRadius === 'Custom' ? 'bg-primary border-primary text-white font-extrabold' : 'bg-white border-outline-variant/25 text-on-surface-variant hover:bg-neutral-100/50'}`}
+                  >
+                    Custom Range
+                  </button>
+                </div>
+
+                {selectedRadius === 'Custom' && (
+                  <div className="pt-2">
+                    <div className="flex justify-between items-center text-xs text-outline font-bold mb-1">
+                      <span>Radius limit</span>
+                      <span className="text-secondary font-black">{customRadiusValue} km</span>
+                    </div>
+                    <input 
+                      type="range" 
+                      min="1" 
+                      max="150" 
+                      value={customRadiusValue} 
+                      onChange={(e) => setCustomRadiusValue(Number(e.target.value))}
+                      className="w-full h-1 bg-outline-variant rounded-lg appearance-none cursor-pointer accent-primary"
+                    />
+                  </div>
+                )}
               </div>
 
               {/* Date filters */}
@@ -3981,7 +4945,7 @@ export default function DiscoverTab({
               onClick={() => setShowCompletionForm(false)}
               className="absolute top-4 right-4 text-on-surface-variant hover:text-on-surface p-1 rounded-full cursor-pointer"
             >
-              <X className="w-4.5 h-4.5" />
+              <X className="w-5 h-5" />
             </button>
 
             <div className="flex items-center gap-2 mb-4 text-emerald-700">

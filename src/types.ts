@@ -73,7 +73,8 @@ export interface FeedPost {
   };
 
   // Structured Activity & Living Record Fields
-  type?: 'event_recap' | 'hub_milestone' | 'thank_you_note' | 'outcome_report';
+  type?: 'event_recap' | 'hub_milestone' | 'thank_you_note' | 'outcome_report' | 'hub_update';
+  updateType?: string; // Community Milestone, Challenge Announcement, Important Notice, Community Achievement, Gallery Update, Summary Update
   eventName?: string;
   eventId?: string;
   hubName?: string;
@@ -124,6 +125,11 @@ export interface EventEntity {
   organizerAvatar: string;
   organizerVerification: 'Member' | 'Identity Verified' | 'Trusted Organizer';
   organizerPastEvents: number;
+
+  // Interest System Tags
+  primaryInterest?: string;
+  secondaryInterest?: string;
+  thirdInterest?: string;
   
   // Rules setup
   capacity: number;
@@ -247,6 +253,15 @@ export interface UserProfile {
   communityContributions: string[];
   organizerRating?: number; // e.g. 4.9
   earnedBadges: string[];
+
+  // Interest System Fields
+  interests?: string[];
+  causes?: string[];
+  participationPreferences?: string[];
+  discoveryRadius?: number | 'Custom';
+  customRadiusValue?: number;
+  interestNotificationsEnabled?: boolean;
+  feedInterestsSettingEnabled?: boolean;
 }
 
 export type Tab = 'Landing' | 'Discover' | 'Feed' | 'Host' | 'Profile' | 'MyHubs';

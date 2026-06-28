@@ -600,5 +600,12 @@ export const DEFAULT_PROFILE: UserProfile = {
     'Community Builder',
     'Environmental Contributor',
     'Education Volunteer'
-  ]
+  ],
+  interests: ['Cycling', 'Environmental Action', 'Volunteering', 'Tree Plantation'],
+  causes: ['Environmental Protection', 'Education', 'Community Development'],
+  participationPreferences: ['Attend Events', 'Volunteer'],
+  discoveryRadius: 25,
+  customRadiusValue: 25,
+  interestNotificationsEnabled: true,
+  feedInterestsSettingEnabled: false
 };

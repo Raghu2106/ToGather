@@ -22,6 +22,16 @@ import {
 } from 'lucide-react';
 import { APPROVED_CATEGORIES, HUB_CATEGORIES } from '../data';
 
+const INTERESTS_BY_CATEGORY: Record<string, string[]> = {
+  'Environment & Conservation': ['Environmental Action', 'Beach Cleanup', 'Tree Plantation', 'Gardening', 'Volunteering', 'Social Impact'],
+  'Education & Mentorship': ['Education', 'Reading', 'Writing', 'Technology', 'Programming', 'Public Speaking', 'Debate'],
+  'Health & Wellness': ['Yoga', 'Meditation', 'Fitness', 'Wellness', 'Nutrition', 'Mental Wellness'],
+  'Art & Creative Expression': ['Painting', 'Crafts', 'Photography', 'Videography', 'Music', 'Dance', 'Theatre', 'Movies'],
+  'Neighborhood Outings': ['Cycling', 'Motorcycling', 'Running', 'Walking', 'Trekking', 'Camping', 'Travel'],
+  'Volunteering & Social Causes': ['Community Service', 'Volunteering', 'Blood Donation', 'Disaster Relief', 'Social Impact'],
+  'Pets & Urban Wildlife': ['Pets', 'Animal Welfare', 'Bird Watching']
+};
+
 interface HostTabProps {
   onAddNewEvent: (newEvent: Omit<EventEntity, 'id' | 'attendees' | 'attendeesCount' | 'isAttending'>) => void;
   onAddNewHub?: (newHub: { name: string; category: string; description: string; image: string; tag: string }) => void;
@@ -49,6 +59,22 @@ export default function HostTab({ onAddNewEvent, onAddNewHub, isLoggedIn, onShow
   const [accessMode, setAccessMode] = useState<'Open' | 'Approval Required' | 'Invite Only'>('Open');
   const [coverPreset, setCoverPreset] = useState(0);
   const [discussionsEnabled, setDiscussionsEnabled] = useState<boolean>(true);
+
+  // Interest tags state and category auto-alignment
+  const [primaryInterest, setPrimaryInterest] = useState('');
+  const [secondaryInterest, setSecondaryInterest] = useState('');
+  const [thirdInterest, setThirdInterest] = useState('');
+
+  React.useEffect(() => {
+    const defaultInterests = INTERESTS_BY_CATEGORY[category] || [];
+    if (defaultInterests.length > 0) {
+      setPrimaryInterest(defaultInterests[0]);
+    } else {
+      setPrimaryInterest('');
+    }
+    setSecondaryInterest('');
+    setThirdInterest('');
+  }, [category]);
 
   // Agreement and accountability checks
   const [agreedGuidelines, setAgreedGuidelines] = useState(false);
@@ -118,7 +144,10 @@ export default function HostTab({ onAddNewEvent, onAddNewHub, isLoggedIn, onShow
         }
       ],
       discussion: [],
-      photos: [mediaPresets[coverPreset].url]
+      photos: [mediaPresets[coverPreset].url],
+      primaryInterest,
+      secondaryInterest: secondaryInterest || undefined,
+      thirdInterest: thirdInterest || undefined
     });
 
     // Reset forms
@@ -276,6 +305,62 @@ export default function HostTab({ onAddNewEvent, onAddNewHub, isLoggedIn, onShow
                   <option value="NGO">NGO / Charity Institute</option>
                   <option value="Organization">Public Organization</option>
                 </select>
+              </div>
+            </div>
+
+            {/* Interest Tagging and Anti-Spam Control */}
+            <div className="bg-primary/5 p-4 rounded-2xl border border-primary/20 space-y-3">
+              <div className="space-y-0.5">
+                <span className="block text-[10px] font-black text-primary uppercase tracking-widest">🛡️ Interest Tagging System</span>
+                <span className="block text-[8.5px] text-outline leading-tight font-semibold">
+                  Select 1 to 3 focus tags. Max 3 tags. Target options align with your chosen category to maintain search authenticity and block social popularity exploits.
+                </span>
+              </div>
+
+              <div className="grid grid-cols-3 gap-2">
+                <div>
+                  <label className="block text-[9px] font-bold text-outline uppercase mb-0.5">Primary (Required) *</label>
+                  <select
+                    className="w-full h-9 px-1.5 bg-white border border-outline-variant/30 rounded-lg text-[10.5px] focus:ring-1 focus:ring-primary font-bold text-primary focus:outline-none"
+                    value={primaryInterest}
+                    onChange={(e) => setPrimaryInterest(e.target.value)}
+                    required
+                  >
+                    {(INTERESTS_BY_CATEGORY[category] || []).map((interest) => (
+                      <option key={interest} value={interest}>{interest}</option>
+                    ))}
+                  </select>
+                </div>
+
+                <div>
+                  <label className="block text-[9px] font-bold text-outline uppercase mb-0.5">Secondary (Optional)</label>
+                  <select
+                    className="w-full h-9 px-1.5 bg-white border border-outline-variant/30 rounded-lg text-[10.5px] focus:ring-1 focus:ring-primary text-on-surface focus:outline-none"
+                    value={secondaryInterest}
+                    onChange={(e) => setSecondaryInterest(e.target.value)}
+                  >
+                    <option value="">-- None --</option>
+                    {(INTERESTS_BY_CATEGORY[category] || []).filter(item => item !== primaryInterest).map((interest) => (
+                      <option key={interest} value={interest}>{interest}</option>
+                    ))}
+                  </select>
+                </div>
+
+                <div>
+                  <label className="block text-[9px] font-bold text-outline uppercase mb-0.5">Third (Optional)</label>
+                  <select
+                    className="w-full h-9 px-1.5 bg-white border border-outline-variant/30 rounded-lg text-[10.5px] focus:ring-1 focus:ring-primary text-on-surface focus:outline-none"
+                    value={thirdInterest}
+                    onChange={(e) => setThirdInterest(e.target.value)}
+                  >
+                    <option value="">-- None --</option>
+                    {(INTERESTS_BY_CATEGORY[category] || [])
+                      .filter(item => item !== primaryInterest && item !== secondaryInterest)
+                      .map((interest) => (
+                        <option key={interest} value={interest}>{interest}</option>
+                      ))}
+                  </select>
+                </div>
               </div>
             </div>
 

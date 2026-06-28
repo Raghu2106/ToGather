@@ -33,6 +33,65 @@ import {
   ChevronRight
 } from 'lucide-react';
 
+const ALL_INTEREST_GROUPS = [
+  {
+    category: 'Outdoor Activities',
+    items: ['Cycling', 'Motorcycling', 'Running', 'Walking', 'Trekking', 'Camping', 'Travel']
+  },
+  {
+    category: 'Learning & Creativity',
+    items: ['Reading', 'Writing', 'Technology', 'Programming', 'Artificial Intelligence', 'Startups', 'Entrepreneurship', 'Education', 'Public Speaking', 'Debate']
+  },
+  {
+    category: 'Arts & Culture',
+    items: ['Photography', 'Videography', 'Painting', 'Crafts', 'Music', 'Dance', 'Theatre', 'Movies', 'History & Heritage', 'Cultural Activities']
+  },
+  {
+    category: 'Lifestyle & Wellness',
+    items: ['Yoga', 'Meditation', 'Fitness', 'Wellness', 'Nutrition', 'Mental Wellness']
+  },
+  {
+    category: 'Community & Causes',
+    items: ['Community Service', 'Volunteering', 'Environmental Action', 'Beach Cleanup', 'Tree Plantation', 'Blood Donation', 'Disaster Relief', 'Social Impact']
+  },
+  {
+    category: 'Animals & Nature',
+    items: ['Pets', 'Animal Welfare', 'Bird Watching', 'Gardening']
+  },
+  {
+    category: 'Hobbies & Recreation',
+    items: ['Chess', 'Board Games', 'Food & Cooking', 'Baking']
+  },
+  {
+    category: 'Other',
+    items: ['Custom Interest']
+  }
+];
+
+const ALL_CAUSES = [
+  'Environmental Protection',
+  'Animal Welfare',
+  'Education',
+  'Public Health',
+  'Community Development',
+  'Women Empowerment',
+  'Child Welfare',
+  'Senior Citizen Support',
+  'Disability Inclusion',
+  'Mental Health',
+  'Disaster Relief'
+];
+
+const ALL_PARTICIPATION_PREFS = [
+  'Attend Events',
+  'Volunteer',
+  'Organize Events',
+  'Join Communities',
+  'Learning Activities',
+  'Outdoor Activities',
+  'Professional Networking'
+];
+
 interface ProfileTabProps {
   profile: UserProfile;
   onUpdateProfile: (updated: UserProfile) => void;
@@ -63,6 +122,29 @@ export default function ProfileTab({
   const [bio, setBio] = useState(profile.bio);
   const [phone, setPhone] = useState(profile.phone);
   const [location, setLocation] = useState(profile.location);
+
+  // Interest System states
+  const [selectedInterests, setSelectedInterests] = useState<string[]>(profile.interests || []);
+  const [selectedCauses, setSelectedCauses] = useState<string[]>(profile.causes || []);
+  const [selectedPrefs, setSelectedPrefs] = useState<string[]>(profile.participationPreferences || []);
+  const [radiusPref, setRadiusPref] = useState<number | 'Custom'>(profile.discoveryRadius || 25);
+  const [customRadius, setCustomRadius] = useState<number>(profile.customRadiusValue || 25);
+  const [interestNotifications, setInterestNotifications] = useState<boolean>(profile.interestNotificationsEnabled ?? true);
+  const [feedInterestsSetting, setFeedInterestsSetting] = useState<boolean>(profile.feedInterestsSettingEnabled ?? false);
+
+  React.useEffect(() => {
+    setName(profile.name || '');
+    setBio(profile.bio || '');
+    setPhone(profile.phone || '');
+    setLocation(profile.location || '');
+    setSelectedInterests(profile.interests || []);
+    setSelectedCauses(profile.causes || []);
+    setSelectedPrefs(profile.participationPreferences || []);
+    setRadiusPref(profile.discoveryRadius || 25);
+    setCustomRadius(profile.customRadiusValue || 25);
+    setInterestNotifications(profile.interestNotificationsEnabled ?? true);
+    setFeedInterestsSetting(profile.feedInterestsSettingEnabled ?? false);
+  }, [profile.name, profile.bio, profile.phone, profile.location, isEditing]);
 
   // My Events Navigation & Dashboard states
   const [activeSubView, setActiveSubView] = useState<'my-events' | 'my-communities' | null>(null);
@@ -280,10 +362,17 @@ export default function ProfileTab({
       name,
       bio,
       phone,
-      location
+      location,
+      interests: selectedInterests,
+      causes: selectedCauses,
+      participationPreferences: selectedPrefs,
+      discoveryRadius: radiusPref,
+      customRadiusValue: customRadius,
+      interestNotificationsEnabled: interestNotifications,
+      feedInterestsSettingEnabled: feedInterestsSetting
     });
     setIsEditing(false);
-    alert('Success: Profile updated! Credentials synced with safety registers.');
+    alert('Success: Profile updated with interests, causes, and discovery preferences!');
   };
 
   const getFilteredCount = (f: 'all' | 'upcoming' | 'ongoing' | 'completed') => {
@@ -1117,6 +1206,79 @@ export default function ProfileTab({
                 </span>
               </div>
             </div>
+
+            {/* Interests & Discovery Profile Summary */}
+            <div className="mt-5 border-t border-outline-variant/10 pt-4 space-y-4">
+              <div>
+                <span className="text-[10px] font-black uppercase tracking-wider text-outline block mb-2 select-none">🎯 My Selected Interests</span>
+                <div className="flex flex-wrap gap-1.5">
+                  {profile.interests && profile.interests.length > 0 ? (
+                    profile.interests.map(interest => (
+                      <span key={interest} className="px-2.5 py-1 bg-primary/5 text-primary border border-primary/15 text-[11px] font-medium rounded-lg">
+                        {interest}
+                      </span>
+                    ))
+                  ) : (
+                    <span className="text-xs text-outline italic">No interests selected. Click Edit Profile to setup yours.</span>
+                  )}
+                </div>
+              </div>
+
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div>
+                  <span className="text-[10px] font-black uppercase tracking-wider text-outline block mb-2 select-none">🎗 Selected Causes</span>
+                  <div className="flex flex-wrap gap-1">
+                    {profile.causes && profile.causes.length > 0 ? (
+                      profile.causes.map(cause => (
+                        <span key={cause} className="px-2 py-0.5 bg-secondary/10 text-on-secondary-container text-[10px] font-bold rounded-md">
+                          {cause}
+                        </span>
+                      ))
+                    ) : (
+                      <span className="text-xs text-outline italic">No causes selected.</span>
+                    )}
+                  </div>
+                </div>
+
+                <div>
+                  <span className="text-[10px] font-black uppercase tracking-wider text-outline block mb-2 select-none">🗺 Discovery Radius</span>
+                  <div className="text-xs font-semibold text-on-surface flex items-center gap-1.5 bg-surface-container-low p-2 rounded-xl">
+                    <span className="w-1.5 h-1.5 rounded-full bg-primary animate-pulse shrink-0" />
+                    <span>
+                      {profile.discoveryRadius === 'Custom' 
+                        ? `${profile.customRadiusValue || 25} km` 
+                        : `${profile.discoveryRadius || 25} km`} Preferred Discovery Radius
+                    </span>
+                  </div>
+                </div>
+              </div>
+
+              <div>
+                <span className="text-[10px] font-black uppercase tracking-wider text-outline block mb-1.5 select-none">⚙ Engagement Preferences</span>
+                <div className="flex flex-wrap gap-1">
+                  {profile.participationPreferences && profile.participationPreferences.length > 0 ? (
+                    profile.participationPreferences.map(pref => (
+                      <span key={pref} className="px-2 py-0.5 bg-teal-50 text-teal-950 border border-teal-150 text-[10px] font-bold rounded-md flex items-center gap-1">
+                        ✓ {pref}
+                      </span>
+                    ))
+                  ) : (
+                    <span className="text-xs text-outline italic">No engagement preferences selected.</span>
+                  )}
+                </div>
+              </div>
+
+              <div className="p-3 bg-surface-container-lowest border border-outline-variant/20 rounded-xl flex flex-col sm:flex-row sm:items-center sm:justify-between text-[11px] text-on-surface-variant gap-2 leading-tight">
+                <div className="flex items-center gap-1.5">
+                  <span className={`w-2 h-2 rounded-full ${profile.interestNotificationsEnabled !== false ? 'bg-emerald-500' : 'bg-outline'} shrink-0`} />
+                  <span>Interests Alert Notifications: <strong>{profile.interestNotificationsEnabled !== false ? 'On' : 'Off'}</strong></span>
+                </div>
+                <div className="flex items-center gap-1.5">
+                  <span className={`w-2 h-2 rounded-full ${profile.feedInterestsSettingEnabled ? 'bg-emerald-500' : 'bg-outline'} shrink-0`} />
+                  <span>Feed Interests Booster: <strong>{profile.feedInterestsSettingEnabled ? 'Enabled' : 'Disabled'}</strong></span>
+                </div>
+              </div>
+            </div>
           </>
         ) : (
           <form onSubmit={handleSave} className="space-y-4">
@@ -1162,6 +1324,176 @@ export default function ProfileTab({
                   onChange={(e) => setPhone(e.target.value)}
                   className="w-full h-11 px-3 bg-surface-container-low border border-outline-variant/30 rounded-xl text-xs focus:ring-1 focus:ring-primary focus:outline-none"
                 />
+              </div>
+            </div>
+
+            {/* INTERESTS SELECTION (ONBOARDING & EDITING FLOW) */}
+            <div className="border-t border-outline-variant/10 pt-4 space-y-4">
+              <div>
+                <span className="block text-[10px] font-bold uppercase tracking-wider text-outline mb-1">🎯 Select My Interests</span>
+                <p className="text-[10px] text-on-surface-variant mb-2">Select multiple interests to discover local gatherings relevant to you.</p>
+                
+                <div className="space-y-3 max-h-72 overflow-y-auto border border-outline-variant/20 rounded-xl p-3 bg-surface-container-lowest">
+                  {ALL_INTEREST_GROUPS.map((group) => (
+                    <div key={group.category} className="space-y-1">
+                      <span className="text-[9.5px] font-extrabold text-primary uppercase tracking-wider block">{group.category}</span>
+                      <div className="flex flex-wrap gap-1.5 pb-2 border-b border-dashed border-outline-variant/10 last:border-b-0 mb-2 last:mb-0">
+                        {group.items.map((item) => {
+                          const isSelected = selectedInterests.includes(item);
+                          return (
+                            <button
+                              type="button"
+                              key={item}
+                              onClick={() => {
+                                if (isSelected) {
+                                  setSelectedInterests(selectedInterests.filter(i => i !== item));
+                                } else {
+                                  setSelectedInterests([...selectedInterests, item]);
+                                }
+                              }}
+                              className={`px-2 py-1 rounded-lg text-[11px] font-medium transition-all cursor-pointer ${
+                                isSelected 
+                                  ? 'bg-primary text-on-primary font-bold shadow-xs' 
+                                  : 'bg-surface-container hover:bg-surface-container-high text-on-surface border border-outline-variant/20'
+                              }`}
+                            >
+                              {isSelected ? `✓ ${item}` : `+ ${item}`}
+                            </button>
+                          );
+                        })}
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </div>
+
+              <div>
+                <span className="block text-[10px] font-bold uppercase tracking-wider text-outline mb-1">🎗 Causes I Care About</span>
+                <p className="text-[10px] text-on-surface-variant mb-2">Select the causes you are passionate about to guide personalized event suggestions.</p>
+                <div className="flex flex-wrap gap-1.5 border border-outline-variant/20 rounded-xl p-3 bg-surface-container-lowest">
+                  {ALL_CAUSES.map((cause) => {
+                    const isSelected = selectedCauses.includes(cause);
+                    return (
+                      <button
+                        type="button"
+                        key={cause}
+                        onClick={() => {
+                          if (isSelected) {
+                            setSelectedCauses(selectedCauses.filter(c => c !== cause));
+                          } else {
+                            setSelectedCauses([...selectedCauses, cause]);
+                          }
+                        }}
+                        className={`px-2.5 py-1 rounded-lg text-[10.5px] font-medium transition-all cursor-pointer ${
+                          isSelected 
+                            ? 'bg-secondary text-on-secondary font-bold shadow-xs' 
+                            : 'bg-surface-container hover:bg-surface-container-high text-on-surface border border-outline-variant/20'
+                        }`}
+                      >
+                        {isSelected ? `✓ ${cause}` : cause}
+                      </button>
+                    );
+                  })}
+                </div>
+              </div>
+
+              <div>
+                <span className="block text-[10px] font-bold uppercase tracking-wider text-outline mb-1">⚙ Typical Participation Preferences</span>
+                <p className="text-[10px] text-on-surface-variant mb-2">How do you usually collaborate and engage within neighborhood gatherings?</p>
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 border border-outline-variant/20 rounded-xl p-3 bg-surface-container-lowest">
+                  {ALL_PARTICIPATION_PREFS.map((pref) => {
+                    const isSelected = selectedPrefs.includes(pref);
+                    return (
+                      <label 
+                        key={pref} 
+                        className={`flex items-center gap-2 px-3 py-2 rounded-xl border text-xs font-semibold cursor-pointer select-none transition-colors ${
+                          isSelected 
+                            ? 'bg-teal-50 border-teal-200 text-teal-950' 
+                            : 'bg-surface border-outline-variant/15 text-on-surface-variant hover:bg-surface-container-low'
+                        }`}
+                      >
+                        <input
+                          type="checkbox"
+                          checked={isSelected}
+                          onChange={() => {
+                            if (isSelected) {
+                              setSelectedPrefs(selectedPrefs.filter(p => p !== pref));
+                            } else {
+                              setSelectedPrefs([...selectedPrefs, pref]);
+                            }
+                          }}
+                          className="w-3.5 h-3.5 accent-teal-600 rounded bg-surface text-teal-600 cursor-pointer"
+                        />
+                        <span>{pref}</span>
+                      </label>
+                    );
+                  })}
+                </div>
+              </div>
+
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                <div>
+                  <span className="block text-[10px] font-bold uppercase tracking-wider text-outline mb-1">🗺 Event Discovery Radius Limit</span>
+                  <select
+                    value={radiusPref}
+                    onChange={(e) => {
+                      const val = e.target.value;
+                      setRadiusPref(val === 'Custom' ? 'Custom' : Number(val));
+                    }}
+                    className="w-full h-11 px-3 bg-surface-container-low border border-outline-variant/30 rounded-xl text-xs focus:ring-1 focus:ring-primary focus:outline-none"
+                  >
+                    <option value={5}>5 km</option>
+                    <option value={10}>10 km</option>
+                    <option value={25}>25 km</option>
+                    <option value={50}>50 km</option>
+                    <option value={100}>100 km</option>
+                    <option value="Custom">Custom Radius</option>
+                  </select>
+                </div>
+
+                {radiusPref === 'Custom' && (
+                  <div>
+                    <span className="block text-[10px] font-bold uppercase tracking-wider text-outline mb-1">Custom Radius Value (km)</span>
+                    <input 
+                      type="number"
+                      min={1}
+                      max={500}
+                      value={customRadius}
+                      onChange={(e) => setCustomRadius(Number(e.target.value))}
+                      className="w-full h-11 px-3 bg-surface-container-low border border-outline-variant/30 rounded-xl text-xs focus:ring-1 focus:ring-primary focus:outline-none"
+                    />
+                  </div>
+                )}
+              </div>
+
+              <div className="space-y-2 border border-outline-variant/20 rounded-xl p-3 bg-surface-container-lowest">
+                <span className="block text-[10px] font-bold uppercase tracking-wider text-outline mb-1">🔔 Preferences & Feeds Settings</span>
+                
+                <label className="flex items-center justify-between p-2 rounded-lg hover:bg-surface-container-low cursor-pointer">
+                  <div className="space-y-0.5">
+                    <span className="text-xs font-bold text-on-surface block">Interests Alert Notifications</span>
+                    <span className="text-[10px] text-outline block">Notify me when relevant events in my radius are published.</span>
+                  </div>
+                  <input
+                    type="checkbox"
+                    checked={interestNotifications}
+                    onChange={(e) => setInterestNotifications(e.target.checked)}
+                    className="w-4 h-4 accent-primary rounded cursor-pointer"
+                  />
+                </label>
+
+                <label className="flex items-center justify-between p-2 rounded-lg hover:bg-surface-container-low cursor-pointer">
+                  <div className="space-y-0.5">
+                    <span className="text-xs font-bold text-on-surface block">Feed Interests Discovery Booster</span>
+                    <span className="text-[10px] text-outline block">Allow feed to occasionally suggest upcoming events based on interests.</span>
+                  </div>
+                  <input
+                    type="checkbox"
+                    checked={feedInterestsSetting}
+                    onChange={(e) => setFeedInterestsSetting(e.target.checked)}
+                    className="w-4 h-4 accent-primary rounded cursor-pointer"
+                  />
+                </label>
               </div>
             </div>
 
